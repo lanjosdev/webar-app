@@ -1,5 +1,9 @@
 import type {TrackingState} from '../tracking/trackingState';
 import {createMinimalScene} from '../three/scene';
+import {
+  createGroundPlacementController,
+  type GroundPlacementController,
+} from '../world/placement';
 import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
 import {createFullWindowCanvasModule} from './fullWindowCanvas';
@@ -9,6 +13,7 @@ export function createPipelineModules(
   trackingState: TrackingState,
 ): CameraPipelineModule[] {
   let disposeScene: (() => void) | undefined;
+  let placementController: GroundPlacementController | undefined;
 
   const applicationModule: CameraPipelineModule = {
     name: 'webar-poc-lifecycle',
@@ -28,10 +33,22 @@ export function createPipelineModules(
       }
     },
 
-    onStart: () => {
+    onStart: ({canvas}) => {
       const xrScene = xr8.Threejs.xrScene();
       const content = createMinimalScene(xrScene);
-      disposeScene = () => content.dispose();
+      placementController = createGroundPlacementController({
+        camera: xrScene.camera,
+        canvas,
+        onPlaced: () => trackingState.markObjectPlaced(),
+        scene: xrScene.scene,
+        target: content.placementTarget,
+        targetBaseOffset: content.placementTargetBaseOffset,
+      });
+      disposeScene = () => {
+        placementController?.dispose();
+        placementController = undefined;
+        content.dispose();
+      };
 
       // Official API: synchronizes the controller origin and camera projection
       // with the scene created by XR8.Threejs.pipelineModule().
@@ -47,16 +64,23 @@ export function createPipelineModules(
       const reality = processCpuResult?.reality;
 
       if (reality?.trackingStatus === 'NORMAL') {
+        placementController?.setEnabled(true);
         trackingState.setPhase('tracking-ready');
       } else if (reality?.trackingStatus === 'LIMITED') {
+        placementController?.setEnabled(false);
         const phase = reality.trackingReason === 'INITIALIZING'
           ? 'tracking-initializing'
           : 'tracking-limited';
         trackingState.setPhase(phase);
+      } else {
+        placementController?.setEnabled(false);
       }
+
+      placementController?.update();
     },
 
     onException: (error) => {
+      placementController?.setEnabled(false);
       const arError = toARError(error, 'TRACKING_INITIALIZATION_ERROR');
       console.error('[WebAR] XR8 pipeline error', error);
       trackingState.fail(arError);

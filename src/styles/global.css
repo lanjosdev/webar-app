@@ -57,7 +57,22 @@ button {
 }
 
 .status-panel[data-phase="tracking-ready"] {
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.7rem 0.9rem;
   border-color: rgb(53 208 186 / 55%);
+  pointer-events: none;
+}
+
+.status-panel[data-phase="tracking-ready"] .eyebrow,
+.status-panel[data-phase="tracking-ready"] h1 {
+  display: none;
+}
+
+.status-panel[data-phase="tracking-ready"] #status-message {
+  margin: 0;
+  font-size: 0.9rem;
+  text-align: center;
 }
 
 .status-panel[data-phase="tracking-limited"],

@@ -25,7 +25,7 @@ export interface CameraPipelineModule {
   onDetach?: () => void;
   onDeviceOrientationChange?: (args: {orientation: number}) => void;
   onException?: (error: unknown) => void;
-  onStart?: () => void;
+  onStart?: (args: {canvas: HTMLCanvasElement}) => void;
   onUpdate?: (args: {
     processCpuResult?: {
       reality?: RealityResult;

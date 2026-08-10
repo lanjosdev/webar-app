@@ -14,6 +14,8 @@ const TRACKING_CUBE_DISTANCE = 2;
 
 export interface SceneContent {
   dispose(): void;
+  placementTarget: Mesh;
+  placementTargetBaseOffset: number;
 }
 
 export function createMinimalScene({camera, scene}: XRThreeScene): SceneContent {
@@ -29,6 +31,7 @@ export function createMinimalScene({camera, scene}: XRThreeScene): SceneContent 
   const cube = new Mesh(geometry, material);
   cube.name = 'tracking-test-cube';
   cube.position.set(0, TRACKING_CUBE_SIZE / 2, -TRACKING_CUBE_DISTANCE);
+  cube.visible = false;
 
   const hemisphereLight = new HemisphereLight(0xffffff, 0x14243a, 1.8);
   const keyLight = new DirectionalLight(0xffffff, 2.2);
@@ -37,9 +40,9 @@ export function createMinimalScene({camera, scene}: XRThreeScene): SceneContent 
   content.add(cube, hemisphereLight, keyLight);
   scene.add(content);
 
-  // World Tracking estimates one horizontal ground plane at Y = 0. The cube's
-  // center is half its height above that plane, so its base rests on Y = 0.
-  // This remains a fixed tracking reference, not surface detection or placement.
+  // World Tracking estimates one horizontal ground plane at Y = 0. The
+  // placement controller keeps the cube's base on that virtual plane; this is
+  // not multi-plane surface detection.
   camera.position.set(0, 1.6, 0);
 
   return {
@@ -48,5 +51,7 @@ export function createMinimalScene({camera, scene}: XRThreeScene): SceneContent 
       geometry.dispose();
       material.dispose();
     },
+    placementTarget: cube,
+    placementTargetBaseOffset: TRACKING_CUBE_SIZE / 2,
   };
 }

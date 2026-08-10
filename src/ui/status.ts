@@ -7,7 +7,7 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   'requesting-camera': 'Permita o acesso à câmera para continuar.',
   'tracking-initializing':
     'Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.',
-  'tracking-ready': 'Tracking ativo. O cubo deve permanecer estável enquanto você se move.',
+  'tracking-ready': 'Mire no chão e toque para posicionar.',
   'tracking-limited': 'Tracking limitado. Aponte para uma área iluminada e com mais detalhes.',
   error: 'Não foi possível iniciar a experiência.',
 };
@@ -54,7 +54,8 @@ function render(
 ): void {
   const {errorDetails, message, panel, startButton} = elements;
   panel.dataset.phase = snapshot.phase;
-  message.textContent = snapshot.error?.message ?? PHASE_MESSAGES[snapshot.phase];
+  panel.dataset.placement = snapshot.placement;
+  message.textContent = getStatusMessage(snapshot);
 
   const canStart = snapshot.phase === 'idle' || snapshot.phase === 'error';
   startButton.hidden = !canStart;
@@ -68,6 +69,18 @@ function render(
     errorDetails.hidden = true;
     errorDetails.textContent = '';
   }
+}
+
+function getStatusMessage(snapshot: ARSnapshot): string {
+  if (snapshot.error) {
+    return snapshot.error.message;
+  }
+
+  if (snapshot.phase === 'tracking-ready' && snapshot.placement === 'placed') {
+    return 'Objeto posicionado. Mire e toque novamente para reposicionar.';
+  }
+
+  return PHASE_MESSAGES[snapshot.phase];
 }
 
 function getElement<T extends HTMLElement>(id: string): T {

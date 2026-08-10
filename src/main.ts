@@ -10,7 +10,7 @@ const statusUI = createStatusUI(trackingState);
 statusUI.onStart(() => {
   if (trackingState.current.phase === 'error') {
     stopAR();
-    trackingState.setPhase('idle');
+    trackingState.reset();
   }
 
   void startAR(canvas, trackingState).catch((error: unknown) => {

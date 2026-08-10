@@ -10,15 +10,18 @@ export type ARPhase =
   | 'tracking-limited'
   | 'error';
 
+export type PlacementStatus = 'not-placed' | 'placed';
+
 export interface ARSnapshot {
   error?: ARError;
   phase: ARPhase;
+  placement: PlacementStatus;
 }
 
 type Subscriber = (snapshot: ARSnapshot) => void;
 
 export class TrackingState {
-  private snapshot: ARSnapshot = {phase: 'idle'};
+  private snapshot: ARSnapshot = {phase: 'idle', placement: 'not-placed'};
   private readonly subscribers = new Set<Subscriber>();
 
   get current(): ARSnapshot {
@@ -30,7 +33,19 @@ export class TrackingState {
       return;
     }
 
-    this.publish({phase});
+    this.publish({phase, placement: this.snapshot.placement});
+  }
+
+  markObjectPlaced(): void {
+    if (this.snapshot.placement === 'placed') {
+      return;
+    }
+
+    this.publish({...this.snapshot, placement: 'placed'});
+  }
+
+  reset(): void {
+    this.publish({phase: 'idle', placement: 'not-placed'});
   }
 
   fail(error: ARError): void {
@@ -38,7 +53,7 @@ export class TrackingState {
       return;
     }
 
-    this.publish({error, phase: 'error'});
+    this.publish({error, phase: 'error', placement: this.snapshot.placement});
   }
 
   subscribe(subscriber: Subscriber): () => void {
