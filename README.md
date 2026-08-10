@@ -13,7 +13,7 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - pipeline oficial Three.js + World Tracking: implementado;
 - typecheck e build local: aprovados em 10 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
-- validação estruturada do placement em Android/Chrome e iPhone/Safari: pendente;
+- placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
 Não considere o POC validado em WebAR até testá-lo em dispositivos móveis reais.
@@ -129,10 +129,10 @@ tracking-limited
 error
 ```
 
-A UI só recebe transições significativas. O placement mantém um estado ortogonal
-`not-placed | placed`, permitindo preservar o objeto quando o tracking fica
-`LIMITED`. O retículo é atualizado diretamente no loop Three.js, sem atualizar a
-UI a cada frame.
+A UI só recebe transições significativas de estado. O placement mantém um estado
+ortogonal `not-placed | placed`, permitindo preservar o objeto quando o tracking
+fica `LIMITED`. O raycast e a transformação visual do retículo são atualizados no
+loop Three.js, sem propagar pose ou transforms pelo estado da aplicação.
 
 Erros conhecidos são normalizados nos códigos:
 
@@ -208,6 +208,11 @@ O modo fullscreen preenche toda a viewport com comportamento equivalente a
 câmera são recortadas e podem transmitir uma leve sensação de zoom. Isso é
 esperado; preservar toda a imagem exigiria faixas vazias.
 
+O XR8 pode escrever as dimensões lógicas do drawing buffer como estilos inline
+no canvas. A folha global força apenas a caixa CSS para `100% × 100%` da viewport
+com `!important`, preservando os atributos internos do buffer. Isso evita que um
+canvas maior seja recortado e desalinhe o centro 3D do centro da interface.
+
 Teste pelo menos:
 
 - câmera traseira e permissão;
@@ -226,9 +231,20 @@ Siga o procedimento e registre os resultados em
 ## Placement horizontal
 
 Quando o tracking chega a `NORMAL`, um `THREE.Raycaster` é projetado a partir do
-centro da câmera contra um `PlaneGeometry` invisível em `Y = 0`. Um retículo 3D
-indica a interseção válida. O primeiro toque mostra o cubo nessa posição e os
-toques seguintes reposicionam a mesma instância.
+centro da câmera contra um `PlaneGeometry` invisível em `Y = 0`. Um retículo de
+UI em screen-space, fixado em `50% × 50%` da viewport, indica a interseção válida.
+Sua forma e rotação reproduzem a projeção do plano horizontal: fica mais circular
+ao mirar para baixo e mais elíptico perto do horizonte, sem perder a centralização.
+O centro visual é convertido do drawing buffer para o viewport WebGL corrente
+antes do raycast, mantendo o ponto 3D alinhado ao overlay mesmo com recorte
+fullscreen. O viewport é consultado no contexto WebGL porque o XR8 também altera
+esse estado diretamente. O primeiro toque mostra o cubo nessa posição e os toques
+seguintes reposicionam a mesma instância. O `pointerup` apenas solicita a ação;
+a posição é confirmada no próximo `Scene.onBeforeRender`, usando a mesma pose de
+câmera que renderiza o primeiro frame visível do cubo. Como a interseção do
+`Raycaster` está em world-space e o cubo pertence a um `Group`, a posição também
+é convertida explicitamente para o espaço local do pai antes de atualizar sua
+matriz.
 
 O retículo desaparece quando o centro da câmera não intersecta o plano ou quando
 o tracking está `LIMITED`. O cubo colocado permanece visível durante a perda
@@ -275,7 +291,7 @@ Fontes consultadas em **10 de agosto de 2026**.
 
 ## Limitações atuais
 
-- a validação estruturada do placement ainda está pendente em Android e iPhone;
+- modelos, versões e contagem das execuções de placement ainda precisam ser registrados na matriz estruturada;
 - modelos dos aparelhos, versões e tempos dos smoke tests iniciais ainda precisam ser registrados;
 - o túnel HTTPS depende de um processo ngrok externo executado manualmente;
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
