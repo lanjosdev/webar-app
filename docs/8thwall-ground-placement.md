@@ -124,5 +124,5 @@ ser adicionados à matriz estruturada de validação.
 - nenhuma parede, mesa ou plano independente;
 - nenhuma persistência ou anchor entre sessões;
 - escala `responsive`, sem garantia de metros reais;
-- sem recenter, rotação, escala por gesto, GLB ou múltiplos objetos;
+- recenter remove o placement atual; rotação, escala por gesto, GLB e múltiplos objetos permanecem fora desta fase;
 - o plano invisível é uma superfície virtual para raycasting, não plane detection.

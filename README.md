@@ -14,6 +14,7 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - typecheck e build local: aprovados em 10 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
+- recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
 Não considere o POC validado em WebAR até testá-lo em dispositivos móveis reais.
@@ -126,6 +127,7 @@ requesting-camera
 tracking-initializing
 tracking-ready
 tracking-limited
+tracking-recovering
 error
 ```
 
@@ -159,6 +161,7 @@ src/
 │   ├── three/
 │   │   └── scene.ts
 │   ├── tracking/
+│   │   ├── trackingRecovery.ts
 │   │   └── trackingState.ts
 │   └── world/
 │       └── placement.ts
@@ -220,6 +223,7 @@ Teste pelo menos:
 - chegada do tracking ao estado `NORMAL`;
 - estabilidade do cubo com movimento lento;
 - recuperação após `LIMITED`;
+- confirmação, cancelamento e conclusão do recenter;
 - piso texturizado e piso com pouca textura;
 - boa e baixa iluminação;
 - orientação portrait;
@@ -255,6 +259,24 @@ ela não é WebXR Hit Test, detecção de múltiplos planos ou criação de anch
 Detalhes, fontes e roteiro de testes estão em
 [`docs/8thwall-ground-placement.md`](docs/8thwall-ground-placement.md).
 
+## Recuperação e recenter
+
+O status bruto do Engine controla a segurança da interação: qualquer frame
+`LIMITED` ou sem resultado bloqueia o placement imediatamente. A UI usa uma
+janela de 750 ms antes de mostrar `tracking-limited`, evitando oscilações
+visuais, e exige 500 ms contínuos em `NORMAL` para restaurar o retículo.
+
+O botão flutuante **Recentrar** fica disponível depois do primeiro tracking
+estável. Quando existe um objeto, a aplicação pede confirmação porque
+`XR8.XrController.recenter()` reinicia o tracking e redefine o referencial. Ao
+confirmar, o cubo é removido e um novo placement será necessário. Se o tracking
+não se recuperar em 8 segundos, a aplicação volta ao estado limitado e libera
+outra tentativa.
+
+Esse fluxo melhora previsibilidade e recuperação, mas não aumenta a precisão
+interna do SLAM. Consulte a técnica e o roteiro em
+[`docs/8thwall-tracking-recovery.md`](docs/8thwall-tracking-recovery.md).
+
 ## Licença do Engine Binary
 
 O `@8thwall/engine-binary` **não** usa a licença MIT do repositório open source. Ele é distribuído sob uma licença binária de uso limitado, com restrições de uso comercial, redistribuição e atribuição.
@@ -282,6 +304,7 @@ A interface mantém uma atribuição mínima visível, mas a conformidade final 
 | `XR8.XrDevice.isDeviceBrowserCompatible()` | Rejeitar dispositivos incompatíveis antes de iniciar o pipeline | [isDeviceBrowserCompatible](https://8thwall.org/docs/api/engine/xrdevice/isdevicebrowsercompatible) |
 | `XR8.XrDevice.incompatibleReasons()` | Registrar os motivos técnicos da incompatibilidade | [incompatibleReasons](https://8thwall.org/docs/api/engine/xrdevice/incompatiblereasons) |
 | `XR8.XrController.updateCameraProjectionMatrix()` | Sincronizar origem e câmera | [updateCameraProjectionMatrix](https://8thwall.org/docs/api/engine/xrcontroller/updatecameraprojectionmatrix) |
+| `XR8.XrController.recenter()` | Reiniciar tracking no referencial configurado | [recenter](https://8thwall.org/docs/api/engine/xrcontroller/recenter) |
 | Camera pipeline resize callbacks | Sincronizar o canvas com a viewport e a orientação do celular | [CameraPipelineModule](https://8thwall.org/docs/api/engine/xr8/addcamerapipelinemodule) |
 | `XR8.run()` | Abrir a câmera e iniciar o run loop | [XR8.run](https://8thwall.org/docs/api/engine/xr8/run) |
 | `XR8.stop()` | Fechar câmera e interromper tracking | [XR8.stop](https://8thwall.org/docs/api/engine/xr8/stop) |
@@ -297,6 +320,6 @@ Fontes consultadas em **10 de agosto de 2026**.
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
 - o placement funciona somente sobre o plano horizontal virtual `Y = 0`;
 - o modo fullscreen recorta as laterais da câmera para preencher a viewport;
-- não há múltiplos planos, anchors, WebXR Hit Test, recenter, escala absoluta, GLB ou gestos de manipulação;
+- não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, GLB ou gestos de manipulação;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - a licença binária precisa ser reavaliada antes de uso comercial.
