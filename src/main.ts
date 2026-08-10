@@ -1,5 +1,3 @@
-import './styles/global.css';
-
 import {startAR, stopAR} from './ar/engine/init8thWall';
 import {toARError} from './ar/engine/arError';
 import {TrackingState} from './ar/tracking/trackingState';
