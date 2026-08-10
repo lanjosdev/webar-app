@@ -9,10 +9,11 @@ O projeto renderiza um cubo em uma coordenada fixa do mundo para verificar o pip
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- typecheck e build local: aprovados em 7 de agosto de 2026;
+- typecheck e build local: aprovados em 10 de agosto de 2026;
 - teste em iPhone/Safari: pendente;
-- teste em Android/Chrome: pendente;
-- HTTPS/túnel móvel: não configurado nesta etapa.
+- smoke test em Android/Chrome: câmera, canvas fullscreen, tracking e cubo confirmados;
+- validação estruturada em Android/Chrome após o aterramento do cubo: pendente;
+- HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
 Não considere o POC validado em WebAR até testá-lo em dispositivos móveis reais.
 
@@ -102,10 +103,11 @@ tracking LIMITED ou NORMAL
 
 O pipeline é registrado nesta ordem:
 
-1. `XR8.GlTextureRenderer.pipelineModule()`;
-2. `XR8.Threejs.pipelineModule()`;
-3. `XR8.XrController.pipelineModule()`;
-4. módulo de lifecycle da aplicação.
+1. módulo de canvas fullscreen da aplicação;
+2. `XR8.GlTextureRenderer.pipelineModule()`;
+3. `XR8.Threejs.pipelineModule()`;
+4. `XR8.XrController.pipelineModule()`;
+5. módulo de lifecycle da aplicação.
 
 O módulo da aplicação obtém a cena por `XR8.Threejs.xrScene()`, adiciona o cubo e chama `XR8.XrController.updateCameraProjectionMatrix()` para sincronizar a origem da câmera com o controller.
 
@@ -163,19 +165,40 @@ src/
 
 ## Teste móvel
 
-O fluxo esperado é:
+Use duas janelas do PowerShell. Na primeira, inicie o Vite na porta fixa `5173` e
+autorize apenas o domínio ngrok reservado para este projeto:
+
+```powershell
+cd "D:\Documentos\PROJETOS ESTUDOS\webar-app"
+$env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS="roving-helping-reporter.ngrok-free.dev"
+npm run dev -- --port 5173 --strictPort
+```
+
+Na segunda janela, inicie o túnel HTTPS:
+
+```powershell
+ngrok http 5173 --url=https://roving-helping-reporter.ngrok-free.dev
+```
+
+O fluxo resultante é:
 
 ```text
-npm run dev
+Vite em http://localhost:5173
     ↓
-túnel HTTPS
+ngrok
     ↓
-URL pública HTTPS
+https://roving-helping-reporter.ngrok-free.dev
     ↓
 iPhone/Safari ou Android/Chrome
 ```
 
-Nenhum túnel foi adicionado como dependência. Use ngrok ou outra solução HTTPS apropriada quando houver um dispositivo disponível.
+Se o domínio reservado mudar, atualize o hostname nos dois comandos. O ngrok
+permanece uma ferramenta externa e não foi adicionado às dependências do projeto.
+
+O modo fullscreen preenche toda a viewport com comportamento equivalente a
+`cover`. Como a proporção do vídeo difere da tela em retrato, as laterais da
+câmera são recortadas e podem transmitir uma leve sensação de zoom. Isso é
+esperado; preservar toda a imagem exigiria faixas vazias.
 
 Teste pelo menos:
 
@@ -189,7 +212,8 @@ Teste pelo menos:
 - orientação portrait;
 - Android intermediário, quando disponível.
 
-Registre modelo do aparelho, versão do sistema, navegador, tempo de inicialização e problemas de câmera/GPU.
+Siga o procedimento e registre os resultados em
+[`docs/mobile-world-tracking-validation.md`](docs/mobile-world-tracking-validation.md).
 
 ## Licença do Engine Binary
 
@@ -223,14 +247,16 @@ A interface mantém uma atribuição mínima visível, mas a conformidade final 
 | `XR8.stop()` | Fechar câmera e interromper tracking | [XR8.stop](https://8thwall.org/docs/api/engine/xr8/stop) |
 | `XR8.removeCameraPipelineModules()` | Remover módulos no cleanup | [removeCameraPipelineModules](https://8thwall.org/docs/api/engine/xr8/removecamerapipelinemodules) |
 
-Fontes consultadas em **7 de agosto de 2026**.
+Fontes consultadas em **10 de agosto de 2026**.
 
 ## Limitações atuais
 
-- ainda não houve teste em iPhone ou Android real;
-- não há túnel HTTPS configurado;
+- a validação estruturada pós-alteração ainda está pendente em Android e iPhone;
+- o iPhone/Safari ainda não teve um smoke test registrado;
+- o túnel HTTPS depende de um processo ngrok externo executado manualmente;
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
-- o cubo usa posição fixa e não representa detecção de superfície;
+- o cubo está apoiado em `Y = 0`, mas usa posição fixa e não representa detecção de superfície ou placement;
+- o modo fullscreen recorta as laterais da câmera para preencher a viewport;
 - não há placement, hit test, GLB ou interação;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - a licença binária precisa ser reavaliada antes de uso comercial.
