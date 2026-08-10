@@ -15,8 +15,11 @@ Antes do aterramento do cubo, um smoke test em Android confirmou:
 - estado `tracking-ready`;
 - renderização do cubo.
 
-Esse registro não substitui a matriz abaixo, pois o aparelho, as versões e o
-comportamento do cubo após a alteração ainda precisam ser documentados.
+O usuário também confirmou que os testes físicos da fase inicial funcionaram em
+Android/Chrome e iPhone/Safari. Esse registro não substitui a matriz abaixo,
+pois modelos, versões, tempos e resultados detalhados ainda precisam ser
+documentados. A validação do placement possui roteiro próprio em
+[`8thwall-ground-placement.md`](8thwall-ground-placement.md).
 
 ## Dispositivos
 

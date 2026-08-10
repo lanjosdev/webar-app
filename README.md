@@ -2,7 +2,9 @@
 
 Fundação técnica mínima para validar World Tracking em navegador móvel com Vite, TypeScript, Three.js e o 8th Wall Engine Binary.
 
-O projeto renderiza um cubo em uma coordenada fixa do mundo para verificar o pipeline de câmera, tracking e Three.js. Ele ainda não implementa placement, hit test, GLB ou React.
+O projeto usa um retículo central para posicionar e reposicionar um cubo no plano
+horizontal `Y = 0`, validando câmera, tracking, Three.js e interação básica. Ele
+ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 
 ## Status
 
@@ -10,9 +12,8 @@ O projeto renderiza um cubo em uma coordenada fixa do mundo para verificar o pip
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
 - typecheck e build local: aprovados em 10 de agosto de 2026;
-- teste em iPhone/Safari: pendente;
-- smoke test em Android/Chrome: câmera, canvas fullscreen, tracking e cubo confirmados;
-- validação estruturada em Android/Chrome após o aterramento do cubo: pendente;
+- smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
+- validação estruturada do placement em Android/Chrome e iPhone/Safari: pendente;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
 Não considere o POC validado em WebAR até testá-lo em dispositivos móveis reais.
@@ -109,7 +110,9 @@ O pipeline é registrado nesta ordem:
 4. `XR8.XrController.pipelineModule()`;
 5. módulo de lifecycle da aplicação.
 
-O módulo da aplicação obtém a cena por `XR8.Threejs.xrScene()`, adiciona o cubo e chama `XR8.XrController.updateCameraProjectionMatrix()` para sincronizar a origem da câmera com o controller.
+O módulo da aplicação obtém a cena por `XR8.Threejs.xrScene()`, cria o controller
+de placement e chama `XR8.XrController.updateCameraProjectionMatrix()` para
+sincronizar a origem da câmera com o controller.
 
 ## Estados e erros
 
@@ -126,7 +129,10 @@ tracking-limited
 error
 ```
 
-A UI só recebe transições significativas. Os callbacks por frame não provocam atualizações quando o estado permanece igual.
+A UI só recebe transições significativas. O placement mantém um estado ortogonal
+`not-placed | placed`, permitindo preservar o objeto quando o tracking fica
+`LIMITED`. O retículo é atualizado diretamente no loop Three.js, sem atualizar a
+UI a cada frame.
 
 Erros conhecidos são normalizados nos códigos:
 
@@ -152,8 +158,10 @@ src/
 │   │   └── pipeline.ts
 │   ├── three/
 │   │   └── scene.ts
-│   └── tracking/
-│       └── trackingState.ts
+│   ├── tracking/
+│   │   └── trackingState.ts
+│   └── world/
+│       └── placement.ts
 ├── types/
 │   ├── 8thwall-engine-binary.d.ts
 │   └── window.d.ts
@@ -215,6 +223,22 @@ Teste pelo menos:
 Siga o procedimento e registre os resultados em
 [`docs/mobile-world-tracking-validation.md`](docs/mobile-world-tracking-validation.md).
 
+## Placement horizontal
+
+Quando o tracking chega a `NORMAL`, um `THREE.Raycaster` é projetado a partir do
+centro da câmera contra um `PlaneGeometry` invisível em `Y = 0`. Um retículo 3D
+indica a interseção válida. O primeiro toque mostra o cubo nessa posição e os
+toques seguintes reposicionam a mesma instância.
+
+O retículo desaparece quando o centro da câmera não intersecta o plano ou quando
+o tracking está `LIMITED`. O cubo colocado permanece visível durante a perda
+temporária de tracking.
+
+Essa técnica representa somente o chão horizontal mantido pelo World Tracking;
+ela não é WebXR Hit Test, detecção de múltiplos planos ou criação de anchors.
+Detalhes, fontes e roteiro de testes estão em
+[`docs/8thwall-ground-placement.md`](docs/8thwall-ground-placement.md).
+
 ## Licença do Engine Binary
 
 O `@8thwall/engine-binary` **não** usa a licença MIT do repositório open source. Ele é distribuído sob uma licença binária de uso limitado, com restrições de uso comercial, redistribuição e atribuição.
@@ -251,12 +275,12 @@ Fontes consultadas em **10 de agosto de 2026**.
 
 ## Limitações atuais
 
-- a validação estruturada pós-alteração ainda está pendente em Android e iPhone;
-- o iPhone/Safari ainda não teve um smoke test registrado;
+- a validação estruturada do placement ainda está pendente em Android e iPhone;
+- modelos dos aparelhos, versões e tempos dos smoke tests iniciais ainda precisam ser registrados;
 - o túnel HTTPS depende de um processo ngrok externo executado manualmente;
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
-- o cubo está apoiado em `Y = 0`, mas usa posição fixa e não representa detecção de superfície ou placement;
+- o placement funciona somente sobre o plano horizontal virtual `Y = 0`;
 - o modo fullscreen recorta as laterais da câmera para preencher a viewport;
-- não há placement, hit test, GLB ou interação;
+- não há múltiplos planos, anchors, WebXR Hit Test, recenter, escala absoluta, GLB ou gestos de manipulação;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - a licença binária precisa ser reavaliada antes de uso comercial.
