@@ -4,12 +4,13 @@ import * as THREE from 'three';
 import type {TrackingState} from '../tracking/trackingState';
 import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
-import {createPipelineModules} from './pipeline';
+import {createPipelineSession, type PipelineSession} from './pipeline';
 
 const ENGINE_LOAD_TIMEOUT_MS = 15_000;
 
 let activeXR8: XR8 | undefined;
 let activeModules: CameraPipelineModule[] = [];
+let activeSession: PipelineSession | undefined;
 let startPromise: Promise<void> | undefined;
 
 export function startAR(
@@ -31,6 +32,7 @@ export function stopAR(): void {
 
   activeXR8 = undefined;
   activeModules = [];
+  activeSession = undefined;
   startPromise = undefined;
 
   if (!xr8) {
@@ -50,6 +52,10 @@ export function stopAR(): void {
       console.warn('[WebAR] Could not remove every XR8 pipeline module.', error);
     }
   }
+}
+
+export function recenterAR(): boolean {
+  return activeSession?.recenter() ?? false;
 }
 
 async function bootstrapAR(
@@ -88,9 +94,11 @@ async function bootstrapAR(
     scale: 'responsive',
   });
 
-  const modules = createPipelineModules(xr8, trackingState, placementReticle);
+  const session = createPipelineSession(xr8, trackingState, placementReticle);
+  const {modules} = session;
   xr8.addCameraPipelineModules(modules);
   activeModules = modules;
+  activeSession = session;
 
   trackingState.setPhase('requesting-camera');
   xr8.run({

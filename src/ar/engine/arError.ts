@@ -6,6 +6,7 @@ export type ARErrorCode =
   | 'UNSUPPORTED_BROWSER'
   | 'UNSUPPORTED_DEVICE'
   | 'TRACKING_INITIALIZATION_ERROR'
+  | 'TRACKING_RECENTER_ERROR'
   | 'UNKNOWN_AR_ERROR';
 
 const DEFAULT_MESSAGES: Record<ARErrorCode, string> = {
@@ -16,6 +17,7 @@ const DEFAULT_MESSAGES: Record<ARErrorCode, string> = {
   UNSUPPORTED_BROWSER: 'Este navegador ou dispositivo não é compatível com a experiência.',
   UNSUPPORTED_DEVICE: 'O World Tracking deve ser aberto em um celular compatível.',
   TRACKING_INITIALIZATION_ERROR: 'Não foi possível iniciar o tracking neste dispositivo.',
+  TRACKING_RECENTER_ERROR: 'Não foi possível recentralizar o ambiente.',
   UNKNOWN_AR_ERROR: 'Ocorreu um erro inesperado ao iniciar a experiência.',
 };
 

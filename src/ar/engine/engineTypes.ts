@@ -67,6 +67,7 @@ export interface XR8 {
       scale?: 'absolute' | 'responsive';
     }): void;
     pipelineModule(): CameraPipelineModule;
+    recenter(): void;
     updateCameraProjectionMatrix(options: {
       facing?: Pick<Quaternion, 'w' | 'x' | 'y' | 'z'>;
       origin?: Pick<Vector3, 'x' | 'y' | 'z'>;

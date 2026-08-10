@@ -29,6 +29,13 @@
         hidden
       ></div>
 
+      <div
+        id="interaction-blocker"
+        class="interaction-blocker"
+        aria-hidden="true"
+        hidden
+      ></div>
+
       <section
         id="status-panel"
         class="status-panel"
@@ -40,8 +47,28 @@
         <h1>WebAR POC</h1>
         <p id="status-message">Pronto para iniciar a experiência.</p>
         <p id="error-details" class="error-details" hidden></p>
+        <div
+          id="recenter-confirmation"
+          class="recenter-confirmation"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="recenter-confirmation-message"
+          hidden
+        >
+          <p id="recenter-confirmation-message">
+            Recentralizar removerá o objeto posicionado. Deseja continuar?
+          </p>
+          <div class="confirmation-actions">
+            <button id="cancel-recenter" type="button">Cancelar</button>
+            <button id="confirm-recenter" type="button">Recentralizar</button>
+          </div>
+        </div>
         <button id="start-ar" type="button">Iniciar AR</button>
       </section>
+
+      <button id="recenter-ar" class="recenter-button" type="button" hidden>
+        Recentrar
+      </button>
     </main>
 
     <noscript>Ative o JavaScript para iniciar a experiência WebAR.</noscript>

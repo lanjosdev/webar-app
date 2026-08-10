@@ -8,37 +8,166 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   'tracking-initializing':
     'Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.',
   'tracking-ready': 'Mire no chão e toque para posicionar.',
-  'tracking-limited': 'Tracking limitado. Aponte para uma área iluminada e com mais detalhes.',
+  'tracking-limited':
+    'Tracking instável. Mova o celular lentamente e aponte para um piso iluminado e com textura.',
+  'tracking-recovering':
+    'Recentralizando. Aponte para o piso e mova o celular lentamente.',
   error: 'Não foi possível iniciar a experiência.',
 };
 
 export interface StatusUI {
   destroy(): void;
+  onRecenter(handler: () => boolean): void;
   onStart(handler: () => void): void;
 }
 
 export function createStatusUI(trackingState: TrackingState): StatusUI {
+  const app = getElement<HTMLElement>('app');
   const panel = getElement<HTMLElement>('status-panel');
   const message = getElement<HTMLParagraphElement>('status-message');
   const errorDetails = getElement<HTMLParagraphElement>('error-details');
   const startButton = getElement<HTMLButtonElement>('start-ar');
+  const recenterButton = getElement<HTMLButtonElement>('recenter-ar');
+  const confirmation = getElement<HTMLElement>('recenter-confirmation');
+  const cancelRecenterButton = getElement<HTMLButtonElement>('cancel-recenter');
+  const confirmRecenterButton = getElement<HTMLButtonElement>('confirm-recenter');
+  const interactionBlocker = getElement<HTMLElement>('interaction-blocker');
   let startHandler: (() => void) | undefined;
+  let recenterHandler: (() => boolean) | undefined;
+  let currentSnapshot = trackingState.current;
+  let isConfirming = false;
+  let isSubmittingRecenter = false;
+  let previousFocus: HTMLElement | null = null;
 
-  const handleClick = (): void => startHandler?.();
-  startButton.addEventListener('click', handleClick);
+  const handleStartClick = (): void => startHandler?.();
+
+  const setConfirmationOpen = (open: boolean, restoreFocus = true): void => {
+    if (isConfirming === open) {
+      return;
+    }
+
+    isConfirming = open;
+    panel.dataset.confirming = String(open);
+    app.dataset.recenterConfirming = String(open);
+    confirmation.hidden = !open;
+    interactionBlocker.hidden = !open;
+
+    if (open) {
+      previousFocus = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      recenterButton.hidden = true;
+      cancelRecenterButton.focus();
+      return;
+    }
+
+    recenterButton.hidden = !isRecenterPhase(currentSnapshot.phase);
+    recenterButton.disabled = recenterButton.hidden;
+    if (restoreFocus && previousFocus?.isConnected && !recenterButton.hidden) {
+      previousFocus.focus();
+    }
+    previousFocus = null;
+  };
+
+  const submitRecenter = (): void => {
+    if (isSubmittingRecenter || !recenterHandler) {
+      return;
+    }
+
+    isSubmittingRecenter = true;
+    setConfirmationOpen(false, false);
+
+    if (!recenterHandler()) {
+      isSubmittingRecenter = false;
+      render(currentSnapshot, {
+        errorDetails,
+        message,
+        panel,
+        recenterButton,
+        startButton,
+      });
+    }
+  };
+
+  const handleRecenterClick = (): void => {
+    if (currentSnapshot.placement === 'placed') {
+      setConfirmationOpen(true);
+      return;
+    }
+
+    submitRecenter();
+  };
+
+  const handleCancelRecenterClick = (): void => setConfirmationOpen(false);
+
+  const handleConfirmationKeydown = (event: KeyboardEvent): void => {
+    if (!isConfirming) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setConfirmationOpen(false);
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    if (event.shiftKey && document.activeElement === cancelRecenterButton) {
+      event.preventDefault();
+      confirmRecenterButton.focus();
+    } else if (!event.shiftKey && document.activeElement === confirmRecenterButton) {
+      event.preventDefault();
+      cancelRecenterButton.focus();
+    }
+  };
+
+  startButton.addEventListener('click', handleStartClick);
+  recenterButton.addEventListener('click', handleRecenterClick);
+  cancelRecenterButton.addEventListener('click', handleCancelRecenterClick);
+  confirmRecenterButton.addEventListener('click', submitRecenter);
+  document.addEventListener('keydown', handleConfirmationKeydown);
 
   const unsubscribe = trackingState.subscribe((snapshot) => {
-    render(snapshot, {errorDetails, message, panel, startButton});
+    currentSnapshot = snapshot;
+    const canShowRecenter = isRecenterPhase(snapshot.phase);
+
+    if (!canShowRecenter || snapshot.placement !== 'placed') {
+      setConfirmationOpen(false, false);
+    }
+
+    if (snapshot.phase !== 'tracking-ready' && snapshot.phase !== 'tracking-limited') {
+      isSubmittingRecenter = false;
+    }
+
+    render(snapshot, {
+      errorDetails,
+      message,
+      panel,
+      recenterButton,
+      startButton,
+    });
   });
 
   return {
+    onRecenter(handler): void {
+      recenterHandler = handler;
+    },
     onStart(handler): void {
       startHandler = handler;
     },
     destroy(): void {
+      setConfirmationOpen(false, false);
       unsubscribe();
-      startButton.removeEventListener('click', handleClick);
+      startButton.removeEventListener('click', handleStartClick);
+      recenterButton.removeEventListener('click', handleRecenterClick);
+      cancelRecenterButton.removeEventListener('click', handleCancelRecenterClick);
+      confirmRecenterButton.removeEventListener('click', submitRecenter);
+      document.removeEventListener('keydown', handleConfirmationKeydown);
       startHandler = undefined;
+      recenterHandler = undefined;
     },
   };
 }
@@ -49,10 +178,11 @@ function render(
     errorDetails: HTMLParagraphElement;
     message: HTMLParagraphElement;
     panel: HTMLElement;
+    recenterButton: HTMLButtonElement;
     startButton: HTMLButtonElement;
   },
 ): void {
-  const {errorDetails, message, panel, startButton} = elements;
+  const {errorDetails, message, panel, recenterButton, startButton} = elements;
   panel.dataset.phase = snapshot.phase;
   panel.dataset.placement = snapshot.placement;
   message.textContent = getStatusMessage(snapshot);
@@ -62,6 +192,10 @@ function render(
   startButton.disabled = !canStart;
   startButton.textContent = snapshot.phase === 'error' ? 'Tentar novamente' : 'Iniciar AR';
 
+  const canRecenter = isRecenterPhase(snapshot.phase);
+  recenterButton.hidden = !canRecenter || panel.dataset.confirming === 'true';
+  recenterButton.disabled = !canRecenter;
+
   if (snapshot.error) {
     errorDetails.hidden = false;
     errorDetails.textContent = `Código: ${snapshot.error.code}`;
@@ -69,6 +203,10 @@ function render(
     errorDetails.hidden = true;
     errorDetails.textContent = '';
   }
+}
+
+function isRecenterPhase(phase: ARPhase): boolean {
+  return phase === 'tracking-ready' || phase === 'tracking-limited';
 }
 
 function getStatusMessage(snapshot: ARSnapshot): string {

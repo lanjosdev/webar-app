@@ -57,9 +57,21 @@ button {
   pointer-events: none;
 }
 
-.status-panel {
+#app[data-recenter-confirming="true"] .placement-reticle {
+  visibility: hidden;
+}
+
+.interaction-blocker {
   position: fixed;
   z-index: 2;
+  inset: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.status-panel {
+  position: fixed;
+  z-index: 4;
   top: max(1rem, env(safe-area-inset-top));
   right: max(1rem, env(safe-area-inset-right));
   left: max(1rem, env(safe-area-inset-left));
@@ -74,11 +86,29 @@ button {
   backdrop-filter: blur(16px);
 }
 
+.status-panel[data-confirming="true"] {
+  width: auto;
+  max-width: 28rem;
+  padding: 1rem;
+  pointer-events: auto;
+}
+
+.status-panel[data-confirming="true"] .eyebrow,
+.status-panel[data-confirming="true"] h1,
+.status-panel[data-confirming="true"] #status-message,
+.status-panel[data-confirming="true"] .error-details,
+.status-panel[data-confirming="true"] #start-ar {
+  display: none;
+}
+
 .status-panel[data-phase="tracking-ready"] {
   width: fit-content;
   max-width: calc(100% - 2rem);
   padding: 0.7rem 0.9rem;
   border-color: rgb(53 208 186 / 55%);
+}
+
+.status-panel[data-phase="tracking-ready"]:not([data-confirming="true"]) {
   pointer-events: none;
 }
 
@@ -125,6 +155,47 @@ h1 {
   font-size: 0.75rem;
 }
 
+.recenter-confirmation p {
+  margin: 0;
+  color: #d7e2ef;
+  line-height: 1.45;
+}
+
+.confirmation-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+
+.confirmation-actions button,
+.recenter-button {
+  min-height: 3rem;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 0.75rem;
+  color: #f5f8fc;
+  background: rgb(5 13 25 / 88%);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#confirm-recenter {
+  border-color: transparent;
+  color: #03221d;
+  background: #35d0ba;
+}
+
+.recenter-button {
+  position: fixed;
+  z-index: 3;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  min-width: 7.5rem;
+  padding-inline: 1rem;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 30%);
+  backdrop-filter: blur(16px);
+}
+
 #start-ar {
   width: 100%;
   min-height: 3rem;
@@ -138,6 +209,12 @@ h1 {
 }
 
 #start-ar:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.confirmation-actions button:focus-visible,
+.recenter-button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 3px;
 }

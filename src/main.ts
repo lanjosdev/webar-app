@@ -1,4 +1,4 @@
-import {startAR, stopAR} from './ar/engine/init8thWall';
+import {recenterAR, startAR, stopAR} from './ar/engine/init8thWall';
 import {toARError} from './ar/engine/arError';
 import {TrackingState} from './ar/tracking/trackingState';
 import {createStatusUI} from './ui/status';
@@ -20,6 +20,8 @@ statusUI.onStart(() => {
     trackingState.fail(arError);
   });
 });
+
+statusUI.onRecenter(() => recenterAR());
 
 const cleanup = (): void => {
   statusUI.destroy();

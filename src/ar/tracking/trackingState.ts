@@ -8,6 +8,7 @@ export type ARPhase =
   | 'tracking-initializing'
   | 'tracking-ready'
   | 'tracking-limited'
+  | 'tracking-recovering'
   | 'error';
 
 export type PlacementStatus = 'not-placed' | 'placed';
@@ -42,6 +43,10 @@ export class TrackingState {
     }
 
     this.publish({...this.snapshot, placement: 'placed'});
+  }
+
+  beginRecentering(): void {
+    this.publish({phase: 'tracking-recovering', placement: 'not-placed'});
   }
 
   reset(): void {

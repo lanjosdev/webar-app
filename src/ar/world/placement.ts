@@ -25,6 +25,7 @@ const RETICLE_TRANSFORM_EPSILON = 0.005;
 
 export interface GroundPlacementController {
   dispose(): void;
+  reset(): void;
   setEnabled(enabled: boolean): void;
 }
 
@@ -338,7 +339,18 @@ export function createGroundPlacementController({
       groundMaterial.dispose();
     },
 
+    reset(): void {
+      placementRequested = false;
+      hasValidPlacement = false;
+      target.visible = false;
+      setReticleVisible(false);
+    },
+
     setEnabled(nextEnabled): void {
+      if (enabled === nextEnabled) {
+        return;
+      }
+
       enabled = nextEnabled;
 
       if (!enabled) {

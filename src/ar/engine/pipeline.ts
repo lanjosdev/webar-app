@@ -1,4 +1,5 @@
 import type {TrackingState} from '../tracking/trackingState';
+import {createTrackingRecoveryController} from '../tracking/trackingRecovery';
 import {createMinimalScene} from '../three/scene';
 import {
   createGroundPlacementController,
@@ -8,13 +9,19 @@ import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
 import {createFullWindowCanvasModule} from './fullWindowCanvas';
 
-export function createPipelineModules(
+export interface PipelineSession {
+  modules: CameraPipelineModule[];
+  recenter(): boolean;
+}
+
+export function createPipelineSession(
   xr8: XR8,
   trackingState: TrackingState,
   placementReticle: HTMLElement,
-): CameraPipelineModule[] {
+): PipelineSession {
   let disposeScene: (() => void) | undefined;
   let placementController: GroundPlacementController | undefined;
+  const trackingRecovery = createTrackingRecoveryController(trackingState);
 
   const applicationModule: CameraPipelineModule = {
     name: 'webar-poc-lifecycle',
@@ -63,19 +70,8 @@ export function createPipelineModules(
 
     onUpdate: ({processCpuResult}) => {
       const reality = processCpuResult?.reality;
-
-      if (reality?.trackingStatus === 'NORMAL') {
-        placementController?.setEnabled(true);
-        trackingState.setPhase('tracking-ready');
-      } else if (reality?.trackingStatus === 'LIMITED') {
-        placementController?.setEnabled(false);
-        const phase = reality.trackingReason === 'INITIALIZING'
-          ? 'tracking-initializing'
-          : 'tracking-limited';
-        trackingState.setPhase(phase);
-      } else {
-        placementController?.setEnabled(false);
-      }
+      const placementEnabled = trackingRecovery.update(reality);
+      placementController?.setEnabled(placementEnabled);
     },
 
     onException: (error) => {
@@ -91,11 +87,43 @@ export function createPipelineModules(
     },
   };
 
-  return [
+  const modules = [
     createFullWindowCanvasModule(),
     xr8.GlTextureRenderer.pipelineModule(),
     xr8.Threejs.pipelineModule(),
     xr8.XrController.pipelineModule(),
     applicationModule,
   ];
+
+  return {
+    modules,
+
+    recenter(): boolean {
+      const controller = placementController;
+
+      if (!controller || !trackingRecovery.canRecenter()) {
+        return false;
+      }
+
+      controller.setEnabled(false);
+
+      try {
+        xr8.XrController.recenter();
+      } catch (error: unknown) {
+        console.error('[WebAR] Could not recenter World Tracking.', error);
+        trackingState.fail(
+          new ARError(
+            'TRACKING_RECENTER_ERROR',
+            'Não foi possível recentralizar o ambiente. Tente reiniciar a experiência.',
+            {cause: error},
+          ),
+        );
+        return true;
+      }
+
+      controller.reset();
+      trackingRecovery.beginRecentering();
+      return true;
+    },
+  };
 }
