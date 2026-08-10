@@ -11,6 +11,7 @@ import {createFullWindowCanvasModule} from './fullWindowCanvas';
 export function createPipelineModules(
   xr8: XR8,
   trackingState: TrackingState,
+  placementReticle: HTMLElement,
 ): CameraPipelineModule[] {
   let disposeScene: (() => void) | undefined;
   let placementController: GroundPlacementController | undefined;
@@ -37,9 +38,9 @@ export function createPipelineModules(
       const xrScene = xr8.Threejs.xrScene();
       const content = createMinimalScene(xrScene);
       placementController = createGroundPlacementController({
-        camera: xrScene.camera,
         canvas,
         onPlaced: () => trackingState.markObjectPlaced(),
+        reticleElement: placementReticle,
         scene: xrScene.scene,
         target: content.placementTarget,
         targetBaseOffset: content.placementTargetBaseOffset,
@@ -75,8 +76,6 @@ export function createPipelineModules(
       } else {
         placementController?.setEnabled(false);
       }
-
-      placementController?.update();
     },
 
     onException: (error) => {

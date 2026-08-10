@@ -33,10 +33,28 @@ button {
   position: fixed;
   inset: 0;
   display: block;
-  width: 100%;
-  height: 100%;
+  /* XR8 writes logical buffer dimensions as inline presentation styles.
+     Keep those dimensions in the canvas attributes, but force the CSS box to
+     the viewport so NDC (0, 0) and the UI center share the same pixel. */
+  width: 100% !important;
+  height: 100% !important;
   background: radial-gradient(circle at 50% 35%, #18324d, #07111f 68%);
   touch-action: none;
+}
+
+.placement-reticle {
+  position: fixed;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border: 0.3rem solid #35d0ba;
+  border-radius: 50%;
+  transform-origin: center;
+  box-shadow: 0 0 0.75rem rgb(53 208 186 / 35%);
+  pointer-events: none;
 }
 
 .status-panel {

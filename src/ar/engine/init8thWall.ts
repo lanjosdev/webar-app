@@ -12,8 +12,12 @@ let activeXR8: XR8 | undefined;
 let activeModules: CameraPipelineModule[] = [];
 let startPromise: Promise<void> | undefined;
 
-export function startAR(canvas: HTMLCanvasElement, trackingState: TrackingState): Promise<void> {
-  startPromise ??= bootstrapAR(canvas, trackingState).catch((error: unknown) => {
+export function startAR(
+  canvas: HTMLCanvasElement,
+  trackingState: TrackingState,
+  placementReticle: HTMLElement,
+): Promise<void> {
+  startPromise ??= bootstrapAR(canvas, trackingState, placementReticle).catch((error: unknown) => {
     stopAR();
     throw toARError(error);
   });
@@ -51,6 +55,7 @@ export function stopAR(): void {
 async function bootstrapAR(
   canvas: HTMLCanvasElement,
   trackingState: TrackingState,
+  placementReticle: HTMLElement,
 ): Promise<void> {
   assertBrowserPrerequisites();
 
@@ -83,7 +88,7 @@ async function bootstrapAR(
     scale: 'responsive',
   });
 
-  const modules = createPipelineModules(xr8, trackingState);
+  const modules = createPipelineModules(xr8, trackingState, placementReticle);
   xr8.addCameraPipelineModules(modules);
   activeModules = modules;
 

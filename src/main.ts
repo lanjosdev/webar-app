@@ -4,6 +4,7 @@ import {TrackingState} from './ar/tracking/trackingState';
 import {createStatusUI} from './ui/status';
 
 const canvas = getCanvas('camera-feed');
+const placementReticle = getElement('placement-reticle');
 const trackingState = new TrackingState();
 const statusUI = createStatusUI(trackingState);
 
@@ -13,7 +14,7 @@ statusUI.onStart(() => {
     trackingState.reset();
   }
 
-  void startAR(canvas, trackingState).catch((error: unknown) => {
+  void startAR(canvas, trackingState, placementReticle).catch((error: unknown) => {
     const arError = toARError(error);
     console.error('[WebAR] Failed to start the experience.', error);
     trackingState.fail(arError);
@@ -36,6 +37,16 @@ function getCanvas(id: string): HTMLCanvasElement {
 
   if (!(element instanceof HTMLCanvasElement)) {
     throw new Error(`Required canvas #${id} was not found.`);
+  }
+
+  return element;
+}
+
+function getElement(id: string): HTMLElement {
+  const element = document.getElementById(id);
+
+  if (!element) {
+    throw new Error(`Required element #${id} was not found.`);
   }
 
   return element;
