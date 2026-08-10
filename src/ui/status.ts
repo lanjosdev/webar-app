@@ -5,7 +5,8 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   'loading-engine': 'Carregando o 8th Wall Engine…',
   'loading-slam': 'Preparando o World Tracking…',
   'requesting-camera': 'Permita o acesso à câmera para continuar.',
-  'tracking-initializing': 'Inicializando o tracking. Movimente lentamente o celular.',
+  'tracking-initializing':
+    'Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.',
   'tracking-ready': 'Tracking ativo. O cubo deve permanecer estável enquanto você se move.',
   'tracking-limited': 'Tracking limitado. Aponte para uma área iluminada e com mais detalhes.',
   error: 'Não foi possível iniciar a experiência.',
