@@ -1,0 +1,27 @@
+{
+  "name": "webar-world-tracking-poc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "copy:engine": "node scripts/copy-8thwall-engine.mjs",
+    "predev": "npm run copy:engine",
+    "dev": "vite --host",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "npm run copy:engine",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@8thwall/engine-binary": "1.0.0",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.4",
+    "typescript": "7.0.2",
+    "vite": "8.2.1"
+  }
+}

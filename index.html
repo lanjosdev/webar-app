@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07111f" />
+    <meta
+      name="description"
+      content="POC mínimo de WebAR World Tracking com 8th Wall e Three.js"
+    />
+    <title>WebAR World Tracking POC</title>
+    <script src="%BASE_URL%external/xr/xr.js" async></script>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="camera-feed" aria-label="Visualização da câmera com conteúdo em realidade aumentada"></canvas>
+
+      <section id="status-panel" class="status-panel" data-phase="idle" aria-live="polite">
+        <p class="eyebrow">8th Wall · World Tracking</p>
+        <h1>WebAR POC</h1>
+        <p id="status-message">Pronto para iniciar a experiência.</p>
+        <p id="error-details" class="error-details" hidden></p>
+        <button id="start-ar" type="button">Iniciar AR</button>
+      </section>
+
+      <p class="attribution">
+        Powered by 8th Wall Engine · © 2026 Niantic Spatial, Inc.
+      </p>
+    </main>
+
+    <noscript>Ative o JavaScript para iniciar a experiência WebAR.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

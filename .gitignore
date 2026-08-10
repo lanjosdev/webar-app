@@ -4,6 +4,10 @@ node_modules/
 # Build output
 dist/
 dist-ssr/
+.vite/
+
+# Generated 8th Wall Engine binary artifacts
+public/external/xr/
 
 # Environment files and local overrides
 .env
