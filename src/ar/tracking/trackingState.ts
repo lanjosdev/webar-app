@@ -4,6 +4,7 @@ export type ARPhase =
   | 'idle'
   | 'loading-engine'
   | 'loading-slam'
+  | 'requesting-motion'
   | 'requesting-camera'
   | 'tracking-initializing'
   | 'tracking-ready'

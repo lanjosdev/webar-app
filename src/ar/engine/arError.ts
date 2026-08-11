@@ -1,6 +1,7 @@
 export type ARErrorCode =
   | 'ENGINE_LOAD_ERROR'
   | 'SLAM_LOAD_ERROR'
+  | 'MOTION_PERMISSION_DENIED'
   | 'CAMERA_PERMISSION_DENIED'
   | 'CAMERA_UNAVAILABLE'
   | 'UNSUPPORTED_BROWSER'
@@ -12,6 +13,7 @@ export type ARErrorCode =
 const DEFAULT_MESSAGES: Record<ARErrorCode, string> = {
   ENGINE_LOAD_ERROR: 'Não foi possível carregar o 8th Wall Engine.',
   SLAM_LOAD_ERROR: 'Não foi possível preparar o World Tracking.',
+  MOTION_PERMISSION_DENIED: 'O acesso aos sensores de movimento foi negado.',
   CAMERA_PERMISSION_DENIED: 'O acesso à câmera foi negado.',
   CAMERA_UNAVAILABLE: 'Nenhuma câmera compatível está disponível.',
   UNSUPPORTED_BROWSER: 'Este navegador ou dispositivo não é compatível com a experiência.',

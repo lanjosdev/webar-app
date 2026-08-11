@@ -63,9 +63,10 @@ button {
 
 .interaction-blocker {
   position: fixed;
-  z-index: 2;
+  z-index: 5;
   inset: 0;
-  background: transparent;
+  background: rgb(2 8 17 / 38%);
+  backdrop-filter: blur(2px);
   touch-action: none;
 }
 
@@ -86,21 +87,6 @@ button {
   backdrop-filter: blur(16px);
 }
 
-.status-panel[data-confirming="true"] {
-  width: auto;
-  max-width: 28rem;
-  padding: 1rem;
-  pointer-events: auto;
-}
-
-.status-panel[data-confirming="true"] .eyebrow,
-.status-panel[data-confirming="true"] h1,
-.status-panel[data-confirming="true"] #status-message,
-.status-panel[data-confirming="true"] .error-details,
-.status-panel[data-confirming="true"] #start-ar {
-  display: none;
-}
-
 .status-panel[data-phase="tracking-ready"] {
   width: fit-content;
   max-width: calc(100% - 2rem);
@@ -108,7 +94,7 @@ button {
   border-color: rgb(53 208 186 / 55%);
 }
 
-.status-panel[data-phase="tracking-ready"]:not([data-confirming="true"]) {
+.status-panel[data-phase="tracking-ready"] {
   pointer-events: none;
 }
 
@@ -155,9 +141,44 @@ h1 {
   font-size: 0.75rem;
 }
 
-.recenter-confirmation p {
+.recenter-sheet,
+.motion-permission-sheet {
+  position: fixed;
+  z-index: 6;
+  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  left: max(0.75rem, env(safe-area-inset-left));
+  width: auto;
+  max-width: 30rem;
+  margin-inline: auto;
+  padding: 0.75rem 1rem 1rem;
+  border: 1px solid rgb(53 208 186 / 48%);
+  border-radius: 1.25rem;
+  background: rgb(5 13 25 / 94%);
+  box-shadow: 0 -0.5rem 2.5rem rgb(0 0 0 / 38%);
+  backdrop-filter: blur(20px);
+  animation: sheet-enter 160ms ease-out;
+}
+
+.sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0 auto 0.65rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 32%);
+}
+
+.recenter-sheet h2,
+.motion-permission-sheet h2 {
   margin: 0;
+  font-size: 1.05rem;
+}
+
+.recenter-sheet p,
+.motion-permission-sheet p {
+  margin: 0.4rem 0 0;
   color: #d7e2ef;
+  font-size: 0.9rem;
   line-height: 1.45;
 }
 
@@ -165,7 +186,7 @@ h1 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.65rem;
-  margin-top: 1rem;
+  margin-top: 0.9rem;
 }
 
 .confirmation-actions button,
@@ -179,7 +200,13 @@ h1 {
   cursor: pointer;
 }
 
-#confirm-recenter {
+.confirmation-actions button {
+  padding: 0.65rem 0.8rem;
+  touch-action: manipulation;
+}
+
+#confirm-recenter,
+#confirm-motion-permission {
   border-color: transparent;
   color: #03221d;
   background: #35d0ba;
@@ -190,10 +217,29 @@ h1 {
   z-index: 3;
   right: max(1rem, env(safe-area-inset-right));
   bottom: max(1rem, env(safe-area-inset-bottom));
-  min-width: 7.5rem;
-  padding-inline: 1rem;
+  display: grid;
+  width: 3.25rem;
+  min-width: 3.25rem;
+  height: 3.25rem;
+  min-height: 3.25rem;
+  padding: 0;
+  place-items: center;
+  border-color: rgb(53 208 186 / 55%);
+  border-radius: 50%;
+  color: #79e5d5;
   box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 30%);
   backdrop-filter: blur(16px);
+  touch-action: manipulation;
+}
+
+.recenter-button svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 #start-ar {
@@ -217,6 +263,30 @@ h1 {
 .recenter-button:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 3px;
+}
+
+.confirmation-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@keyframes sheet-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recenter-sheet,
+  .motion-permission-sheet {
+    animation: none;
+  }
 }
 
 .attribution {

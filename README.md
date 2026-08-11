@@ -123,6 +123,7 @@ Os estados de alto nível ficam em `src/ar/tracking/trackingState.ts`:
 idle
 loading-engine
 loading-slam
+requesting-motion
 requesting-camera
 tracking-initializing
 tracking-ready
@@ -140,6 +141,7 @@ Erros conhecidos são normalizados nos códigos:
 
 - `ENGINE_LOAD_ERROR`;
 - `SLAM_LOAD_ERROR`;
+- `MOTION_PERMISSION_DENIED`;
 - `CAMERA_PERMISSION_DENIED`;
 - `CAMERA_UNAVAILABLE`;
 - `UNSUPPORTED_BROWSER`;
@@ -266,8 +268,17 @@ O status bruto do Engine controla a segurança da interação: qualquer frame
 janela de 750 ms antes de mostrar `tracking-limited`, evitando oscilações
 visuais, e exige 500 ms contínuos em `NORMAL` para restaurar o retículo.
 
-O botão flutuante **Recentrar** fica disponível depois do primeiro tracking
-estável. Quando existe um objeto, a aplicação pede confirmação porque
+No iOS, a aplicação solicita `DeviceMotionEvent` e
+`DeviceOrientationEvent` a partir de uma confirmação própria em português,
+antes de executar `XR8.run()`. O pedido ocorre diretamente no toque em
+**Continuar**, como exigido pelo Safari. Isso evita o painel auxiliar em inglês
+do Engine; o alerta nativo final continua sob controle do iOS e segue o idioma
+configurado no aparelho. Em navegadores que não expõem `requestPermission()`,
+essa etapa é ignorada.
+
+O botão circular com ícone de recenter fica disponível depois do primeiro tracking
+estável. Quando existe um objeto, a aplicação abre uma confirmação em um bottom
+sheet porque
 `XR8.XrController.recenter()` reinicia o tracking e redefine o referencial. Ao
 confirmar, o cubo é removido e um novo placement será necessário. Se o tracking
 não se recuperar em 8 segundos, a aplicação volta ao estado limitado e libera

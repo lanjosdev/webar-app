@@ -4,6 +4,7 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   idle: 'Pronto para iniciar a experiência.',
   'loading-engine': 'Carregando o 8th Wall Engine…',
   'loading-slam': 'Preparando o World Tracking…',
+  'requesting-motion': 'Autorize o acesso aos sensores de movimento para continuar.',
   'requesting-camera': 'Permita o acesso à câmera para continuar.',
   'tracking-initializing':
     'Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.',
@@ -47,7 +48,6 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
     }
 
     isConfirming = open;
-    panel.dataset.confirming = String(open);
     app.dataset.recenterConfirming = String(open);
     confirmation.hidden = !open;
     interactionBlocker.hidden = !open;
@@ -83,6 +83,7 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
         errorDetails,
         message,
         panel,
+        confirmation,
         recenterButton,
         startButton,
       });
@@ -146,6 +147,7 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
       errorDetails,
       message,
       panel,
+      confirmation,
       recenterButton,
       startButton,
     });
@@ -178,11 +180,19 @@ function render(
     errorDetails: HTMLParagraphElement;
     message: HTMLParagraphElement;
     panel: HTMLElement;
+    confirmation: HTMLElement;
     recenterButton: HTMLButtonElement;
     startButton: HTMLButtonElement;
   },
 ): void {
-  const {errorDetails, message, panel, recenterButton, startButton} = elements;
+  const {
+    confirmation,
+    errorDetails,
+    message,
+    panel,
+    recenterButton,
+    startButton,
+  } = elements;
   panel.dataset.phase = snapshot.phase;
   panel.dataset.placement = snapshot.placement;
   message.textContent = getStatusMessage(snapshot);
@@ -193,7 +203,7 @@ function render(
   startButton.textContent = snapshot.phase === 'error' ? 'Tentar novamente' : 'Iniciar AR';
 
   const canRecenter = isRecenterPhase(snapshot.phase);
-  recenterButton.hidden = !canRecenter || panel.dataset.confirming === 'true';
+  recenterButton.hidden = !canRecenter || !confirmation.hidden;
   recenterButton.disabled = !canRecenter;
 
   if (snapshot.error) {
