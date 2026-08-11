@@ -11,13 +11,16 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- typecheck e build local: aprovados em 10 de agosto de 2026;
+- typecheck e build local: aprovados em 11 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
+- erros terminais e pausa/retomada por visibilidade: implementados e confirmados manualmente em Android e iPhone em 11 de agosto de 2026;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
-Não considere o POC validado em WebAR até testá-lo em dispositivos móveis reais.
+O POC possui validação manual em Android e iPhone reais. A matriz detalhada de
+dispositivos, versões e métricas ainda precisa ser registrada para uma validação
+de produção reproduzível.
 
 ## Pré-requisitos
 
@@ -129,6 +132,7 @@ tracking-initializing
 tracking-ready
 tracking-limited
 tracking-recovering
+paused
 error
 ```
 
@@ -136,6 +140,13 @@ A UI só recebe transições significativas de estado. O placement mantém um es
 ortogonal `not-placed | placed`, permitindo preservar o objeto quando o tracking
 fica `LIMITED`. O raycast e a transformação visual do retículo são atualizados no
 loop Three.js, sem propagar pose ou transforms pelo estado da aplicação.
+
+`error` é terminal: callbacks atrasados do Engine não podem restaurar outro
+estado até o usuário iniciar um retry explícito. Uma falha fatal desabilita o
+placement, publica o erro e encerra a sessão fora do callback atual do pipeline.
+Durante uma pausa normal por visibilidade, o estado `paused` preserva o objeto;
+ao retornar, a aplicação exige novamente 500 ms contínuos em `NORMAL` antes de
+restaurar a interação.
 
 Erros conhecidos são normalizados nos códigos:
 
@@ -147,6 +158,8 @@ Erros conhecidos são normalizados nos códigos:
 - `UNSUPPORTED_BROWSER`;
 - `UNSUPPORTED_DEVICE`;
 - `TRACKING_INITIALIZATION_ERROR`;
+- `TRACKING_RECENTER_ERROR`;
+- `SESSION_LIFECYCLE_ERROR`;
 - `UNKNOWN_AR_ERROR`.
 
 ## Estrutura
@@ -226,6 +239,8 @@ Teste pelo menos:
 - estabilidade do cubo com movimento lento;
 - recuperação após `LIMITED`;
 - confirmação, cancelamento e conclusão do recenter;
+- pausa e retomada após trocar de aba, minimizar ou bloquear a tela;
+- erro terminal seguido de retry com uma nova sessão;
 - piso texturizado e piso com pouca textura;
 - boa e baixa iluminação;
 - orientação portrait;
@@ -284,6 +299,17 @@ confirmar, o cubo é removido e um novo placement será necessário. Se o tracki
 não se recuperar em 8 segundos, a aplicação volta ao estado limitado e libera
 outra tentativa.
 
+Quando a página fica oculta, `XR8.pause()` suspende a sessão e o placement é
+bloqueado sem remover o objeto. Ao retornar, `XR8.resume()` reabre a sessão e o
+estado passa por `tracking-recovering` até completar uma nova janela estável em
+`NORMAL`. Eventos duplicados de `visibilitychange`, `pagehide` e `pageshow` são
+tratados de forma idempotente. Um `pagehide` que não participa do back-forward
+cache continua encerrando definitivamente a câmera e os módulos.
+
+Falhas de câmera, pipeline, recenter ou lifecycle entram em um fluxo terminal:
+a mensagem de erro permanece, a sessão é destruída e somente **Tentar novamente**
+executa o reset necessário para criar uma sessão limpa.
+
 Esse fluxo melhora previsibilidade e recuperação, mas não aumenta a precisão
 interna do SLAM. Consulte a técnica e o roteiro em
 [`docs/8thwall-tracking-recovery.md`](docs/8thwall-tracking-recovery.md).
@@ -327,10 +353,13 @@ de distribuição.
 | `XR8.XrController.recenter()` | Reiniciar tracking no referencial configurado | [recenter](https://8thwall.org/docs/api/engine/xrcontroller/recenter) |
 | Camera pipeline resize callbacks | Sincronizar o canvas com a viewport e a orientação do celular | [CameraPipelineModule](https://8thwall.org/docs/api/engine/xr8/addcamerapipelinemodule) |
 | `XR8.run()` | Abrir a câmera e iniciar o run loop | [XR8.run](https://8thwall.org/docs/api/engine/xr8/run) |
+| `XR8.isPaused()` | Evitar chamadas duplicadas de pausa e retomada | [XR8.isPaused](https://8thwall.org/docs/api/engine/xr8/ispaused) |
+| `XR8.pause()` | Suspender câmera e movimento quando a página fica oculta | [XR8.pause](https://8thwall.org/docs/api/engine/xr8/pause) |
+| `XR8.resume()` | Retomar uma sessão pausada | [XR8.resume](https://8thwall.org/docs/api/engine/xr8/resume) |
 | `XR8.stop()` | Fechar câmera e interromper tracking | [XR8.stop](https://8thwall.org/docs/api/engine/xr8/stop) |
 | `XR8.removeCameraPipelineModules()` | Remover módulos no cleanup | [removeCameraPipelineModules](https://8thwall.org/docs/api/engine/xr8/removecamerapipelinemodules) |
 
-Fontes consultadas em **10 de agosto de 2026**.
+Fontes consultadas em **11 de agosto de 2026**.
 
 ## Limitações atuais
 
@@ -342,4 +371,5 @@ Fontes consultadas em **10 de agosto de 2026**.
 - o modo fullscreen recorta as laterais da câmera para preencher a viewport;
 - não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, GLB ou gestos de manipulação;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
+- modelos, versões e quantidade de ciclos da validação de pausa/retomada ainda precisam ser registrados;
 - a licença binária precisa ser reavaliada antes de uso comercial.

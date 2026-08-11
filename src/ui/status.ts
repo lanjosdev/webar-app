@@ -12,7 +12,8 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   'tracking-limited':
     'Tracking instável. Mova o celular lentamente e aponte para um piso iluminado e com textura.',
   'tracking-recovering':
-    'Recentralizando. Aponte para o piso e mova o celular lentamente.',
+    'Recuperando o tracking. Aponte para o piso e mova o celular lentamente.',
+  paused: 'Experiência pausada. Volte para esta página para retomar.',
   error: 'Não foi possível iniciar a experiência.',
 };
 

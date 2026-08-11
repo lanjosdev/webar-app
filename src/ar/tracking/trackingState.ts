@@ -10,6 +10,7 @@ export type ARPhase =
   | 'tracking-ready'
   | 'tracking-limited'
   | 'tracking-recovering'
+  | 'paused'
   | 'error';
 
 export type PlacementStatus = 'not-placed' | 'placed';
@@ -31,6 +32,10 @@ export class TrackingState {
   }
 
   setPhase(phase: Exclude<ARPhase, 'error'>): void {
+    if (this.snapshot.phase === 'error') {
+      return;
+    }
+
     if (this.snapshot.phase === phase && this.snapshot.error === undefined) {
       return;
     }
@@ -39,7 +44,7 @@ export class TrackingState {
   }
 
   markObjectPlaced(): void {
-    if (this.snapshot.placement === 'placed') {
+    if (this.snapshot.phase === 'error' || this.snapshot.placement === 'placed') {
       return;
     }
 
@@ -47,6 +52,10 @@ export class TrackingState {
   }
 
   beginRecentering(): void {
+    if (this.snapshot.phase === 'error') {
+      return;
+    }
+
     this.publish({phase: 'tracking-recovering', placement: 'not-placed'});
   }
 
@@ -55,11 +64,11 @@ export class TrackingState {
   }
 
   fail(error: ARError): void {
-    if (this.snapshot.phase === 'error' && this.snapshot.error?.code === error.code) {
+    if (this.snapshot.phase === 'error') {
       return;
     }
 
-    this.publish({error, phase: 'error', placement: this.snapshot.placement});
+    this.publish({error, phase: 'error', placement: 'not-placed'});
   }
 
   subscribe(subscriber: Subscriber): () => void {

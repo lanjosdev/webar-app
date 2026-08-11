@@ -3,12 +3,15 @@ import type {TrackingState} from './trackingState';
 
 const NORMAL_STABLE_MS = 500;
 const LIMITED_VISIBLE_MS = 750;
-const RECENTER_TIMEOUT_MS = 8_000;
+const RECOVERY_TIMEOUT_MS = 8_000;
 
 type TrackingCandidate = 'normal' | 'unsafe';
+type RecoveryMode = 'recenter' | 'resume';
 
 export interface TrackingRecoveryController {
+  beginPaused(now?: number): void;
   beginRecentering(now?: number): boolean;
+  beginResuming(now?: number): void;
   canRecenter(): boolean;
   update(reality?: RealityResult, now?: number): boolean;
 }
@@ -26,8 +29,8 @@ export function createTrackingRecoveryController(
   let candidate: TrackingCandidate | undefined;
   let candidateSince = 0;
   let hasReachedNormal = false;
-  let recenterStartedAt = 0;
-  let recentring = false;
+  let recoveryMode: RecoveryMode | undefined;
+  let recoveryStartedAt = 0;
 
   const setCandidate = (nextCandidate: TrackingCandidate, now: number): void => {
     if (candidate === nextCandidate) {
@@ -39,28 +42,50 @@ export function createTrackingRecoveryController(
   };
 
   return {
+    beginPaused(now = performance.now()): void {
+      candidate = undefined;
+      candidateSince = now;
+      recoveryMode = undefined;
+      trackingState.setPhase('paused');
+    },
+
     beginRecentering(now = performance.now()): boolean {
-      if (!hasReachedNormal || recentring) {
+      if (!hasReachedNormal || recoveryMode !== undefined) {
         return false;
       }
 
-      recentring = true;
-      recenterStartedAt = now;
+      recoveryMode = 'recenter';
+      recoveryStartedAt = now;
       candidate = undefined;
       candidateSince = now;
       trackingState.beginRecentering();
       return true;
     },
 
+    beginResuming(now = performance.now()): void {
+      candidate = undefined;
+      candidateSince = now;
+
+      if (!hasReachedNormal) {
+        recoveryMode = undefined;
+        trackingState.setPhase('tracking-initializing');
+        return;
+      }
+
+      recoveryMode = 'resume';
+      recoveryStartedAt = now;
+      trackingState.setPhase('tracking-recovering');
+    },
+
     canRecenter(): boolean {
-      return hasReachedNormal && !recentring;
+      return hasReachedNormal && recoveryMode === undefined;
     },
 
     update(reality, now = performance.now()): boolean {
       const isNormal = reality?.trackingStatus === 'NORMAL';
 
-      if (recentring && now - recenterStartedAt >= RECENTER_TIMEOUT_MS) {
-        recentring = false;
+      if (recoveryMode !== undefined && now - recoveryStartedAt >= RECOVERY_TIMEOUT_MS) {
+        recoveryMode = undefined;
         trackingState.setPhase('tracking-limited');
       }
 
@@ -72,7 +97,7 @@ export function createTrackingRecoveryController(
         }
 
         hasReachedNormal = true;
-        recentring = false;
+        recoveryMode = undefined;
         trackingState.setPhase('tracking-ready');
         return true;
       }
@@ -84,7 +109,7 @@ export function createTrackingRecoveryController(
         return false;
       }
 
-      if (recentring) {
+      if (recoveryMode !== undefined) {
         trackingState.setPhase('tracking-recovering');
         return false;
       }

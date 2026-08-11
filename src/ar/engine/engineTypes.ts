@@ -25,6 +25,8 @@ export interface CameraPipelineModule {
   onDetach?: () => void;
   onDeviceOrientationChange?: (args: {orientation: number}) => void;
   onException?: (error: unknown) => void;
+  onPaused?: () => void;
+  onResume?: () => void;
   onStart?: (args: {canvas: HTMLCanvasElement}) => void;
   onUpdate?: (args: {
     processCpuResult?: {
@@ -78,8 +80,11 @@ export interface XR8 {
     isDeviceBrowserCompatible(options: {allowedDevices: unknown}): boolean;
   };
   addCameraPipelineModules(modules: CameraPipelineModule[]): void;
+  isPaused(): boolean;
   loadChunk(name: 'slam'): Promise<void>;
+  pause(): void;
   removeCameraPipelineModules(modules: CameraPipelineModule[]): void;
+  resume(): void;
   run(options: {
     allowedDevices?: unknown;
     cameraConfig?: {direction: unknown};

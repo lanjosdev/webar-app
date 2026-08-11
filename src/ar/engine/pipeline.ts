@@ -11,37 +11,82 @@ import {createFullWindowCanvasModule} from './fullWindowCanvas';
 
 export interface PipelineSession {
   modules: CameraPipelineModule[];
+  pause(): void;
   recenter(): boolean;
+  resume(): void;
 }
 
 export function createPipelineSession(
   xr8: XR8,
   trackingState: TrackingState,
   placementReticle: HTMLElement,
+  onFatalError: (error: ARError) => void,
 ): PipelineSession {
   let disposeScene: (() => void) | undefined;
   let placementController: GroundPlacementController | undefined;
+  let fatalErrorReported = false;
+  let paused = false;
   const trackingRecovery = createTrackingRecoveryController(trackingState);
+
+  const reportFatalError = (error: ARError): void => {
+    if (fatalErrorReported) {
+      return;
+    }
+
+    fatalErrorReported = true;
+    placementController?.setEnabled(false);
+    onFatalError(error);
+  };
+
+  const pause = (): void => {
+    if (fatalErrorReported || paused) {
+      return;
+    }
+
+    paused = true;
+    placementController?.setEnabled(false);
+    trackingRecovery.beginPaused();
+  };
+
+  const resume = (): void => {
+    if (fatalErrorReported || !paused) {
+      return;
+    }
+
+    paused = false;
+    placementController?.setEnabled(false);
+    trackingRecovery.beginResuming();
+  };
 
   const applicationModule: CameraPipelineModule = {
     name: 'webar-poc-lifecycle',
 
     onCameraStatusChange: ({status}) => {
-      if (status === 'requesting') {
-        trackingState.setPhase('requesting-camera');
-      } else if (status === 'hasStream' || status === 'hasVideo') {
-        trackingState.setPhase('tracking-initializing');
-      } else if (status === 'failed') {
-        trackingState.fail(
+      if (status === 'failed') {
+        reportFatalError(
           new ARError(
             'CAMERA_UNAVAILABLE',
             'A câmera não pôde ser iniciada. Verifique as permissões do navegador.',
           ),
         );
+      } else if (
+        fatalErrorReported ||
+        paused ||
+        trackingState.current.phase === 'tracking-recovering'
+      ) {
+        return;
+      } else if (status === 'requesting') {
+        trackingState.setPhase('requesting-camera');
+      } else if (status === 'hasStream' || status === 'hasVideo') {
+        trackingState.setPhase('tracking-initializing');
       }
     },
 
     onStart: ({canvas}) => {
+      if (fatalErrorReported) {
+        return;
+      }
+
       const xrScene = xr8.Threejs.xrScene();
       const content = createMinimalScene(xrScene);
       placementController = createGroundPlacementController({
@@ -65,10 +110,15 @@ export function createPipelineSession(
         origin: xrScene.camera.position,
       });
 
-      trackingState.setPhase('tracking-initializing');
+      trackingState.setPhase(paused ? 'paused' : 'tracking-initializing');
     },
 
     onUpdate: ({processCpuResult}) => {
+      if (fatalErrorReported || paused) {
+        placementController?.setEnabled(false);
+        return;
+      }
+
       const reality = processCpuResult?.reality;
       const placementEnabled = trackingRecovery.update(reality);
       placementController?.setEnabled(placementEnabled);
@@ -78,8 +128,12 @@ export function createPipelineSession(
       placementController?.setEnabled(false);
       const arError = toARError(error, 'TRACKING_INITIALIZATION_ERROR');
       console.error('[WebAR] XR8 pipeline error', error);
-      trackingState.fail(arError);
+      reportFatalError(arError);
     },
+
+    onPaused: pause,
+
+    onResume: resume,
 
     onDetach: () => {
       disposeScene?.();
@@ -97,11 +151,12 @@ export function createPipelineSession(
 
   return {
     modules,
+    pause,
 
     recenter(): boolean {
       const controller = placementController;
 
-      if (!controller || !trackingRecovery.canRecenter()) {
+      if (fatalErrorReported || paused || !controller || !trackingRecovery.canRecenter()) {
         return false;
       }
 
@@ -111,7 +166,7 @@ export function createPipelineSession(
         xr8.XrController.recenter();
       } catch (error: unknown) {
         console.error('[WebAR] Could not recenter World Tracking.', error);
-        trackingState.fail(
+        reportFatalError(
           new ARError(
             'TRACKING_RECENTER_ERROR',
             'Não foi possível recentralizar o ambiente. Tente reiniciar a experiência.',
@@ -125,5 +180,7 @@ export function createPipelineSession(
       trackingRecovery.beginRecentering();
       return true;
     },
+
+    resume,
   };
 }

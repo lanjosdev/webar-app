@@ -1,4 +1,10 @@
-import {recenterAR, startAR, stopAR} from './ar/engine/init8thWall';
+import {
+  pauseAR,
+  recenterAR,
+  resumeAR,
+  startAR,
+  stopAR,
+} from './ar/engine/init8thWall';
 import {toARError} from './ar/engine/arError';
 import {
   needsExplicitMotionPermission,
@@ -13,6 +19,7 @@ const placementReticle = getElement('placement-reticle');
 const trackingState = new TrackingState();
 const statusUI = createStatusUI(trackingState);
 const motionPermissionUI = createMotionPermissionUI();
+let destroyed = false;
 
 statusUI.onStart(() => {
   if (needsExplicitMotionPermission()) {
@@ -65,13 +72,46 @@ function handleStartError(error: unknown): void {
 
 statusUI.onRecenter(() => recenterAR());
 
+const handleVisibilityChange = (): void => {
+  if (document.visibilityState === 'hidden') {
+    pauseAR();
+  } else {
+    resumeAR();
+  }
+};
+
+const handlePageHide = (event: PageTransitionEvent): void => {
+  if (event.persisted) {
+    pauseAR();
+    return;
+  }
+
+  cleanup();
+};
+
+const handlePageShow = (): void => {
+  if (!destroyed && document.visibilityState === 'visible') {
+    resumeAR();
+  }
+};
+
 const cleanup = (): void => {
+  if (destroyed) {
+    return;
+  }
+
+  destroyed = true;
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('pagehide', handlePageHide);
+  window.removeEventListener('pageshow', handlePageShow);
   motionPermissionUI.destroy();
   statusUI.destroy();
   stopAR();
 };
 
-window.addEventListener('pagehide', cleanup, {once: true});
+document.addEventListener('visibilitychange', handleVisibilityChange);
+window.addEventListener('pagehide', handlePageHide);
+window.addEventListener('pageshow', handlePageShow);
 
 if (import.meta.hot) {
   import.meta.hot.dispose(cleanup);

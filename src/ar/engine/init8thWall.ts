@@ -11,6 +11,11 @@ const ENGINE_LOAD_TIMEOUT_MS = 15_000;
 let activeXR8: XR8 | undefined;
 let activeModules: CameraPipelineModule[] = [];
 let activeSession: PipelineSession | undefined;
+let activeSessionToken: symbol | undefined;
+let activeFatalErrorHandler: ((error: ARError) => void) | undefined;
+let activeSessionFailed = false;
+let activeRunStarted = false;
+let pauseRequested = false;
 let startPromise: Promise<void> | undefined;
 
 export function startAR(
@@ -33,6 +38,10 @@ export function stopAR(): void {
   activeXR8 = undefined;
   activeModules = [];
   activeSession = undefined;
+  activeSessionToken = undefined;
+  activeFatalErrorHandler = undefined;
+  activeSessionFailed = false;
+  activeRunStarted = false;
   startPromise = undefined;
 
   if (!xr8) {
@@ -54,6 +63,60 @@ export function stopAR(): void {
   }
 }
 
+/**
+ * Pauses device motion and the camera session while the page is hidden.
+ * Official APIs, consulted 2026-08-11:
+ * https://8thwall.org/docs/api/engine/xr8/pause
+ * https://8thwall.org/docs/api/engine/xr8/ispaused
+ */
+export function pauseAR(): void {
+  pauseRequested = true;
+
+  const xr8 = activeXR8;
+  const session = activeSession;
+
+  if (!xr8 || !session || !activeRunStarted || activeSessionFailed) {
+    return;
+  }
+
+  try {
+    session.pause();
+
+    if (!xr8.isPaused()) {
+      xr8.pause();
+    }
+  } catch (error: unknown) {
+    reportLifecycleError('pausar', error);
+  }
+}
+
+/**
+ * Resumes a paused XR session. Placement remains blocked until tracking has
+ * returned to NORMAL continuously for the recovery stability window.
+ * Official API, consulted 2026-08-11:
+ * https://8thwall.org/docs/api/engine/xr8/resume
+ */
+export function resumeAR(): void {
+  pauseRequested = false;
+
+  const xr8 = activeXR8;
+  const session = activeSession;
+
+  if (!xr8 || !session || !activeRunStarted || activeSessionFailed) {
+    return;
+  }
+
+  try {
+    session.resume();
+
+    if (xr8.isPaused()) {
+      xr8.resume();
+    }
+  } catch (error: unknown) {
+    reportLifecycleError('retomar', error);
+  }
+}
+
 export function recenterAR(): boolean {
   return activeSession?.recenter() ?? false;
 }
@@ -63,6 +126,26 @@ async function bootstrapAR(
   trackingState: TrackingState,
   placementReticle: HTMLElement,
 ): Promise<void> {
+  const sessionToken = Symbol('webar-session');
+  activeSessionToken = sessionToken;
+  activeSessionFailed = false;
+  activeFatalErrorHandler = (error): void => {
+    if (activeSessionToken !== sessionToken || activeSessionFailed) {
+      return;
+    }
+
+    activeSessionFailed = true;
+    trackingState.fail(error);
+
+    // Do not tear down XR8 from inside one of its own pipeline callbacks.
+    // The token prevents a stale callback from stopping a newer retry session.
+    queueMicrotask(() => {
+      if (activeSessionToken === sessionToken) {
+        stopAR();
+      }
+    });
+  };
+
   assertBrowserPrerequisites();
 
   // XR8.Threejs uses the global Three.js namespace. Exposing the imported
@@ -94,7 +177,12 @@ async function bootstrapAR(
     scale: 'responsive',
   });
 
-  const session = createPipelineSession(xr8, trackingState, placementReticle);
+  const session = createPipelineSession(
+    xr8,
+    trackingState,
+    placementReticle,
+    activeFatalErrorHandler,
+  );
   const {modules} = session;
   xr8.addCameraPipelineModules(modules);
   activeModules = modules;
@@ -106,6 +194,22 @@ async function bootstrapAR(
     cameraConfig: {direction: xr8.XrConfig.camera().BACK},
     canvas,
   });
+  activeRunStarted = true;
+
+  if (pauseRequested || document.visibilityState === 'hidden') {
+    pauseAR();
+  }
+}
+
+function reportLifecycleError(action: 'pausar' | 'retomar', error: unknown): void {
+  console.error(`[WebAR] Failed to ${action} the XR8 session.`, error);
+  activeFatalErrorHandler?.(
+    new ARError(
+      'SESSION_LIFECYCLE_ERROR',
+      `Não foi possível ${action} a experiência. Toque em “Tentar novamente”.`,
+      {cause: error},
+    ),
+  );
 }
 
 function assertXR8DeviceCompatible(xr8: XR8, allowedDevices: unknown): void {
