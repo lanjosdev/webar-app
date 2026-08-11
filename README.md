@@ -299,7 +299,16 @@ Antes de publicar ou transformar o POC em produto, revise:
 - o [FAQ de uso permitido](https://8thwall.org/docs/migration/faq#distributed-engine-binary-license-and-permitted-use);
 - as [orientações de atribuição](https://8thwall.org/docs/open-source).
 
-A interface mantém uma atribuição mínima visível, mas a conformidade final deve ser avaliada conforme o produto e sua distribuição.
+Para esta aplicação web, os avisos legais são preservados nos arquivos originais
+`external/xr/xr.js` e `external/xr/LICENSE`, que permanecem públicos no deploy e
+acessíveis pelas ferramentas do navegador. O script
+`scripts/verify-8thwall-license.mjs` é executado automaticamente após
+`npm run build` e interrompe o build se esses arquivos ou seus avisos essenciais
+de copyright, licença e ausência de garantias não estiverem presentes.
+
+O Engine deve continuar sendo distribuído em sua forma original. A conformidade
+final ainda deve ser avaliada conforme o produto, o modelo comercial e a forma
+de distribuição.
 
 ## APIs oficiais utilizadas
 

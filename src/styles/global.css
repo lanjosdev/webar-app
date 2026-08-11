@@ -289,17 +289,6 @@ h1 {
   }
 }
 
-.attribution {
-  position: fixed;
-  z-index: 2;
-  right: max(0.75rem, env(safe-area-inset-right));
-  bottom: max(0.5rem, env(safe-area-inset-bottom));
-  margin: 0;
-  color: rgb(255 255 255 / 72%);
-  font-size: 0.64rem;
-  text-shadow: 0 1px 2px rgb(0 0 0 / 70%);
-}
-
 [hidden] {
   display: none !important;
 }

@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run copy:engine",
     "build": "tsc --noEmit && vite build",
+    "postbuild": "npm run verify:engine-license",
+    "verify:engine-license": "node scripts/verify-8thwall-license.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
