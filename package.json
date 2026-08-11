@@ -10,6 +10,8 @@
     "copy:engine": "node scripts/copy-8thwall-engine.mjs",
     "predev": "npm run copy:engine",
     "dev": "vite --host",
+    "test": "vitest",
+    "test:run": "vitest run",
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run copy:engine",
     "build": "tsc --noEmit && vite build",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@types/three": "0.185.4",
     "typescript": "7.0.2",
-    "vite": "8.2.1"
+    "vite": "8.2.1",
+    "vitest": "4.1.10"
   }
 }

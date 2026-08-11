@@ -11,7 +11,8 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- typecheck e build local: aprovados em 11 de agosto de 2026;
+- 12 testes unitários de tracking state e recovery: aprovados em 11 de agosto de 2026;
+- testes, typecheck e build local: aprovados em 11 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
@@ -55,16 +56,20 @@ Essa pasta é gerada e não deve ser versionada.
 ## Validação local
 
 ```bash
+npm run test:run
 npm run typecheck
 npm run build
 npm run preview
 ```
 
+Durante o desenvolvimento, `npm test` mantém o Vitest em modo de observação.
+`npm run test:run` executa a suíte uma vez e é o comando indicado para CI.
+
 No desktop, valide somente:
 
 - carregamento da página;
 - layout e mensagens de estado;
-- typecheck e build;
+- testes unitários, typecheck e build;
 - presença dos artefatos do Engine em `dist/external/xr`;
 - ausência de imports e paths quebrados.
 
