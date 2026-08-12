@@ -1,7 +1,10 @@
 import {describe, expect, it, vi} from 'vitest';
 
 import type {ARSnapshot} from '../ar/tracking/trackingState';
-import {synchronizeCaptureTracking} from './capture';
+import {
+  getCaptureControlAvailability,
+  synchronizeCaptureTracking,
+} from './capture';
 
 describe('synchronizeCaptureTracking', () => {
   it('renders before reusing an already prepared capture session after preview', () => {
@@ -42,6 +45,34 @@ describe('synchronizeCaptureTracking', () => {
     expect(actions.reset).toHaveBeenCalledOnce();
     expect(actions.render).not.toHaveBeenCalled();
     expect(actions.prepare).not.toHaveBeenCalled();
+  });
+});
+
+describe('getCaptureControlAvailability', () => {
+  const trackingReady = {phase: 'tracking-ready', placement: 'placed'} as const;
+
+  it('keeps photo available while a previous video is finalizing', () => {
+    expect(getCaptureControlAvailability(
+      {elapsedMs: 0, mode: 'photo', phase: 'ready'},
+      trackingReady,
+      true,
+    )).toEqual({
+      photoEnabled: true,
+      shutterEnabled: true,
+      videoEnabled: false,
+    });
+  });
+
+  it('blocks the video shutter until finalization completes', () => {
+    expect(getCaptureControlAvailability(
+      {elapsedMs: 0, mode: 'video', phase: 'ready'},
+      trackingReady,
+      true,
+    )).toEqual({
+      photoEnabled: true,
+      shutterEnabled: false,
+      videoEnabled: false,
+    });
   });
 });
 

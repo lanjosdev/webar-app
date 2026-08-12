@@ -11,13 +11,13 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 31 testes unitários de tracking, recovery, captura e métricas: aprovados em 12 de agosto de 2026;
-- testes, typecheck e build local: aprovados em 11 de agosto de 2026;
+- 39 testes unitários de tracking, recovery, captura e métricas: aprovados em 12 de agosto de 2026;
+- testes, typecheck e build local: aprovados em 12 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
 - erros terminais e pausa/retomada por visibilidade: implementados e confirmados manualmente em Android e iPhone em 11 de agosto de 2026;
-- foto JPEG, vídeo MP4 de até 10 segundos, prévia e compartilhamento: implementados, aguardando validação móvel;
+- foto JPEG, vídeo MP4 de até 10 segundos, prévia e compartilhamento: validados em Android e iPhone; otimização Android em andamento;
 - diagnóstico local por `?diagnostics=1`: implementado, sem backend ou analytics;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
@@ -152,9 +152,12 @@ error
 
 Após posicionar o objeto, a barra inferior permite alternar entre Foto e Vídeo.
 A foto usa JPEG de até 1280 px. O vídeo não solicita microfone, usa dimensão
-máxima de 720 px e para automaticamente em 10 segundos. A prévia pausa o AR e
-oferece Refazer, Salvar e Compartilhar; quando o compartilhamento de arquivos
-não é aceito pelo navegador, Salvar permanece disponível.
+máxima de 720 px e para automaticamente em 10 segundos. A prévia mantém o AR
+ativo atrás da interface e oferece Refazer, Salvar e Compartilhar. Enquanto o
+Android finaliza um MP4 descartado, Foto permanece disponível e uma nova gravação
+fica bloqueada. Quando o compartilhamento de arquivos não é aceito pelo navegador,
+Salvar permanece disponível. O canvas visual limita o DPR a 2,0 sem alterar a
+saída de vídeo em 720 px.
 
 Para medir startup, frames, tracking e captura, acrescente o parâmetro à URL
 HTTPS usada no aparelho:

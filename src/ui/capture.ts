@@ -21,7 +21,6 @@ type InterruptionReason = 'hidden' | 'orientation' | 'pagehide';
 export interface CaptureUI {
   destroy(): void;
   handleInterruption(reason: InterruptionReason): boolean;
-  shouldKeepARPaused(): boolean;
 }
 
 export interface CaptureUIOptions {
@@ -37,6 +36,27 @@ interface CaptureTrackingActions {
   prepare(): void;
   render(): void;
   reset(): void;
+}
+
+export interface CaptureControlAvailability {
+  photoEnabled: boolean;
+  shutterEnabled: boolean;
+  videoEnabled: boolean;
+}
+
+export function getCaptureControlAvailability(
+  snapshot: CaptureSnapshot,
+  arSnapshot: ARSnapshot,
+  videoFinalizationPending: boolean,
+): CaptureControlAvailability {
+  const trackingReady = snapshot.phase === 'ready' && isTrackingCaptureReady(arSnapshot);
+
+  return {
+    photoEnabled: trackingReady,
+    shutterEnabled: snapshot.phase === 'recording' ||
+      (trackingReady && (snapshot.mode !== 'video' || !videoFinalizationPending)),
+    videoEnabled: trackingReady && !videoFinalizationPending,
+  };
 }
 
 export function synchronizeCaptureTracking(
@@ -94,10 +114,12 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
   let flashTimeout: ReturnType<typeof setTimeout> | undefined;
   let orientationResumeTimeout: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
-  let previewPausedAR = false;
   let previousFocus: HTMLElement | null = null;
   let transientPreviewMessage = '';
   let captureOperationId = 0;
+  let activeVideoOperationId: number | undefined;
+  let discardVideoAfterFinalization = false;
+  let videoFinalizationPending = false;
 
   const setMode = (mode: CaptureMode): void => captureState.setMode(mode);
   const handlePhotoMode = (): void => setMode('photo');
@@ -114,7 +136,7 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     }
     orientationResumeTimeout = setTimeout(() => {
       orientationResumeTimeout = undefined;
-      if (!destroyed && !previewPausedAR && document.visibilityState === 'visible') {
+      if (!destroyed && document.visibilityState === 'visible') {
         options.resumeAR();
       }
     }, 300);
@@ -182,7 +204,11 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
 
   const startVideo = (): void => {
     const session = captureSession;
-    if (!session) {
+    if (!session || videoFinalizationPending) {
+      if (videoFinalizationPending) {
+        options.diagnostics?.recordCapture('video-start-blocked');
+        renderCaptureSnapshot(captureState.current);
+      }
       return;
     }
 
@@ -192,11 +218,32 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     recordingStopReason = 'auto';
     recordingDurationMs = 0;
     const operationId = ++captureOperationId;
+    activeVideoOperationId = operationId;
+    discardVideoAfterFinalization = false;
+
+    const isActiveVideoOperation = (): boolean =>
+      !destroyed && operationId === activeVideoOperationId;
+
+    const clearVideoFinalization = (): void => {
+      activeVideoOperationId = undefined;
+      discardVideoAfterFinalization = false;
+      videoFinalizationPending = false;
+      recordingStartedAt = undefined;
+      stopRequested = false;
+    };
 
     try {
       session.startVideo({
         onError: (error) => {
-          if (operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
+            return;
+          }
+          const wasDiscarded = discardVideoAfterFinalization;
+          clearVideoFinalization();
+          if (wasDiscarded) {
+            options.diagnostics?.recordError('capture', error);
+            transientPreviewMessage = 'O vídeo anterior não pôde ser finalizado.';
+            renderCaptureSnapshot(captureState.current);
             return;
           }
           handleCaptureFailure(
@@ -208,17 +255,18 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
           );
         },
         onFinalizeProgress: ({progress, total}) => {
-          if (operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
             return;
           }
           const normalized = total > 0 ? progress / total : progress;
           captureState.setFinalizeProgress(normalized);
         },
         onPreviewReady: ({videoBlob}) => {
-          if (destroyed || operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
             return;
           }
 
+          videoFinalizationPending = true;
           options.diagnostics?.recordCapture('video-preview', {bytes: videoBlob.size});
           const previewAsset = createCaptureAsset({
             blob: videoBlob,
@@ -230,7 +278,7 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
           openPreview(previewAsset, true);
         },
         onStart: () => {
-          if (operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
             return;
           }
           recordingStartedAt = performance.now();
@@ -238,9 +286,10 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
           startRecordingClock();
         },
         onStop: () => {
-          if (operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
             return;
           }
+          videoFinalizationPending = true;
           recordingDurationMs = getRecordingElapsed();
           stopRecordingClock();
           captureState.setFinalizing();
@@ -250,7 +299,24 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
           });
         },
         onVideoReady: ({videoBlob}) => {
-          if (destroyed || operationId !== captureOperationId) {
+          if (!isActiveVideoOperation()) {
+            return;
+          }
+
+          options.diagnostics?.recordCapture('video-ready', {
+            bytes: videoBlob.size,
+            durationMs: recordingDurationMs,
+            finalizationMs: recordingStartedAt === undefined
+              ? undefined
+              : performance.now() - recordingStartedAt - recordingDurationMs,
+          });
+          const shouldDiscard = discardVideoAfterFinalization;
+          clearVideoFinalization();
+
+          if (shouldDiscard) {
+            options.diagnostics?.recordCapture('video-finalization-complete');
+            transientPreviewMessage = 'Vídeo anterior finalizado.';
+            renderCaptureSnapshot(captureState.current);
             return;
           }
 
@@ -261,17 +327,11 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
             mimeType: 'video/mp4',
             shareReady: true,
           });
-          options.diagnostics?.recordCapture('video-ready', {
-            bytes: asset.bytes,
-            durationMs: recordingDurationMs,
-            finalizationMs: recordingStartedAt === undefined
-              ? undefined
-              : performance.now() - recordingStartedAt - recordingDurationMs,
-          });
           openPreview(asset);
         },
       });
     } catch (error: unknown) {
+      clearVideoFinalization();
       handleCaptureFailure(
         toCaptureError(error, 'VIDEO_RECORDING_FAILED', 'Não foi possível iniciar o vídeo.'),
       );
@@ -328,30 +388,34 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     transientPreviewMessage = finalizing ? 'Preparando o arquivo para compartilhar…' : '';
     captureState.setPreview(asset, finalizing);
 
-    if (!previewPausedAR) {
+    if (!previousFocus) {
       previousFocus = document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-      previewPausedAR = true;
-      options.pauseAR();
       queueMicrotask(() => retakeButton.focus());
     }
   };
 
   const closePreview = (): void => {
+    const isBackgroundVideoFinalization = activeAsset?.kind === 'video' &&
+      !activeAsset.shareReady &&
+      videoFinalizationPending;
+
     captureOperationId += 1;
+    if (isBackgroundVideoFinalization) {
+      discardVideoAfterFinalization = true;
+      options.diagnostics?.recordCapture('video-finalization-background');
+    }
     stopRecordingClock();
-    recordingStartedAt = undefined;
-    stopRequested = false;
+    if (!isBackgroundVideoFinalization) {
+      recordingStartedAt = undefined;
+      stopRequested = false;
+    }
     replaceAsset(undefined);
     transientPreviewMessage = '';
     captureState.setReady();
     options.setInteractionLocked(false);
-
-    if (previewPausedAR) {
-      previewPausedAR = false;
-      options.resumeAR();
-    }
+    options.diagnostics?.recordCapture('discard');
 
     if (previousFocus?.isConnected) {
       previousFocus.focus();
@@ -417,15 +481,14 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     recordingStartedAt = undefined;
     stopRequested = false;
     captureOperationId += 1;
+    activeVideoOperationId = undefined;
+    discardVideoAfterFinalization = false;
+    videoFinalizationPending = false;
     replaceAsset(undefined);
     options.setInteractionLocked(false);
     options.diagnostics?.recordError('capture', error);
     captureState.fail(error);
 
-    if (previewPausedAR) {
-      previewPausedAR = false;
-      options.resumeAR();
-    }
   };
 
   const prepareIfNeeded = async (snapshot: ARSnapshot): Promise<void> => {
@@ -469,6 +532,9 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
       render: () => renderCaptureSnapshot(captureState.current),
       reset: () => {
         captureOperationId += 1;
+        activeVideoOperationId = undefined;
+        discardVideoAfterFinalization = false;
+        videoFinalizationPending = false;
         captureSession = undefined;
         preparePromise = undefined;
         stopRecordingClock();
@@ -528,16 +594,20 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
       snapshot.phase === 'recording' ||
       snapshot.phase === 'finalizing' ||
       isPreview;
-    const canCapture = snapshot.phase === 'ready' && isTrackingCaptureReady(arSnapshot);
+    const availability = getCaptureControlAvailability(
+      snapshot,
+      arSnapshot,
+      videoFinalizationPending,
+    );
 
     app.dataset.capturePhase = snapshot.phase;
     app.dataset.captureBusy = String(isBusy);
     controls.hidden = !hasPlacedObject || isPreview || snapshot.phase === 'finalizing';
-    photoModeButton.disabled = !canCapture;
-    videoModeButton.disabled = !canCapture;
+    photoModeButton.disabled = !availability.photoEnabled;
+    videoModeButton.disabled = !availability.videoEnabled;
     photoModeButton.setAttribute('aria-pressed', String(snapshot.mode === 'photo'));
     videoModeButton.setAttribute('aria-pressed', String(snapshot.mode === 'video'));
-    shutterButton.disabled = snapshot.phase === 'recording' ? false : !canCapture;
+    shutterButton.disabled = !availability.shutterEnabled;
     shutterButton.setAttribute(
       'aria-label',
       snapshot.phase === 'recording'
@@ -549,7 +619,11 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     timer.hidden = snapshot.phase !== 'recording';
     timer.textContent = `${formatDuration(snapshot.elapsedMs)} / 00:10`;
     retryButton.hidden = snapshot.phase !== 'error';
-    feedback.textContent = getCaptureFeedback(snapshot, arSnapshot);
+    feedback.textContent = getCaptureFeedback(
+      snapshot,
+      arSnapshot,
+      videoFinalizationPending,
+    );
 
     processing.hidden = snapshot.phase !== 'finalizing';
     processingMessage.textContent = 'Preparando vídeo…';
@@ -610,10 +684,6 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
       return true;
     },
 
-    shouldKeepARPaused(): boolean {
-      return previewPausedAR;
-    },
-
     destroy(): void {
       if (destroyed) {
         return;
@@ -621,6 +691,9 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
 
       destroyed = true;
       captureOperationId += 1;
+      activeVideoOperationId = undefined;
+      discardVideoAfterFinalization = false;
+      videoFinalizationPending = false;
       if (captureState.current.phase === 'recording') {
         stopVideo('destroy');
       }
@@ -655,6 +728,7 @@ function isTrackingCaptureReady(snapshot: ARSnapshot): boolean {
 function getCaptureFeedback(
   snapshot: CaptureSnapshot,
   arSnapshot: ARSnapshot,
+  videoFinalizationPending: boolean,
 ): string {
   if (snapshot.error) {
     return snapshot.error.message;
@@ -669,6 +743,9 @@ function getCaptureFeedback(
     return arSnapshot.phase === 'tracking-ready'
       ? ''
       : 'Gravando. Tracking limitado; mova o aparelho devagar.';
+  }
+  if (videoFinalizationPending && snapshot.phase === 'ready') {
+    return 'Processando… Aguarde para gravar novamente.';
   }
   if (arSnapshot.placement === 'placed' && arSnapshot.phase !== 'tracking-ready') {
     return 'Aguarde o tracking estabilizar para capturar.';

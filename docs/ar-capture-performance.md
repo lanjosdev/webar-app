@@ -23,12 +23,16 @@ iPhone. Nenhum relatório é enviado automaticamente.
 - Microfone: `RequestMicOptions.MANUAL`; a aplicação não solicita áudio.
 - Saída final: MP4. No Android, um preview WebM pode aparecer enquanto o Engine
   finaliza o MP4.
+- Se o usuário descartar essa prévia, a finalização continua em segundo plano:
+  Foto permanece disponível e Vídeo é reabilitado somente após `onVideoReady`.
 - Fonte oficial, consultada em 11/08/2026:
   <https://8thwall.org/docs/api/engine/mediarecorder>.
 
 Os módulos são anexados somente após o primeiro placement. Placement e recenter
-ficam bloqueados enquanto uma captura está ativa. Ao abrir a prévia, `XR8.pause()`
-é usado; Refazer retoma a sessão e aguarda o tracking voltar a `NORMAL` estável.
+ficam bloqueados enquanto uma captura está ativa. A prévia mantém o pipeline AR
+em execução atrás da interface fullscreen, evitando uma relocalização a cada
+uso de **Refazer**. `XR8.pause()` permanece reservado para interrupções reais,
+como ocultar a página, bloquear a tela ou girar durante uma gravação.
 
 ### Compartilhamento
 
@@ -49,16 +53,65 @@ Abra a aplicação HTTPS com:
 
 O relatório inclui:
 
-- tempos até Engine, SLAM, câmera, pipeline e `tracking-ready`;
+- disponibilidade do Engine desde a navegação e tempos, a partir do clique, até
+  SLAM, câmera, pipeline e `tracking-ready`;
 - FPS médio, p95 de frame e frames com 50 ms ou mais;
-- perdas e recuperações de tracking;
-- latência da foto, duração/FPS do vídeo, finalização e tamanho dos arquivos;
+- perdas espontâneas de tracking, separadas das pausas e retomadas intencionais;
+- agregados de todas as fotos e vídeos: latência, duração/FPS, finalização e tamanho;
+- memória no início, durante as capturas, após cada descarte e ao exportar;
 - pausas, retomadas, compartilhamentos e erros;
 - Resource Timing dos arquivos `xr.js` e `xr-slam.js`;
 - memória JavaScript quando o navegador expõe `performance.memory`.
 
 Preencha manualmente modelo, iluminação, conexão, aquecimento e estabilidade.
 Use **Copiar JSON** ou **Baixar JSON** ao final.
+
+## Android — primeira rodada
+
+Coleta realizada em 12/08/2026 no aparelho informado no formulário como
+`Redme Note 13`, Chrome 145, Wi-Fi e boa iluminação.
+
+| Medida | Resultado |
+| --- | ---: |
+| Mediana da linha de base até `tracking-ready` | 2.734 ms |
+| Sessão de captura até `tracking-ready` | 2.661 ms |
+| FPS médio da sessão inativa | 21,64 |
+| FPS mediano durante os vídeos | 13,95 |
+| Latência mediana das fotos | 112,65 ms |
+| Finalização mediana dos MP4 | 8.370 ms |
+
+Startup e fotos atenderam aos critérios. O vídeo atingiu 72,8% do FPS da linha
+de base, abaixo da meta de 80%. Por decisão de produto, esta iteração mantém
+`maxDimension: 720` e mede isoladamente o efeito das correções de lifecycle e
+diagnóstico antes de reconsiderar a resolução.
+
+A sessão inativa registrou três perdas espontâneas de tracking e o teste manual
+relatou deriva ao circular ao redor do objeto. A primeira implementação também
+pausava o Engine em toda prévia, criando quatorze ciclos de relocalização na
+sessão de captura.
+
+## Android — segunda rodada
+
+A V2 confirmou que manter o AR ativo resolveu o deslocamento imediato após
+**Refazer**: restou deriva gradual ao circular e afastar-se do objeto. A sessão
+de captura teve somente três pausas reais e nenhuma perda espontânea reportada.
+
+| Medida | Resultado V2 |
+| --- | ---: |
+| Mediana da linha de base até `tracking-ready` | 3.138 ms |
+| Sessão de captura até `tracking-ready` | 3.399 ms (+8,3%) |
+| FPS médio da sessão inativa | 20,87 |
+| FPS mediano dos três primeiros vídeos | 15,60 (81% da base) |
+| FPS mediano dos ciclos de stress | 10,47 (54,3% da base) |
+| Latência mediana das fotos | 122,80 ms |
+| Memória inicial/pico/final reportada | 123 MB / 123 MB / 123 MB |
+
+A V2 também reproduziu uma tentativa de nova gravação enquanto o MP4 anterior
+ainda era finalizado. O modo Vídeo agora permanece bloqueado nesse intervalo,
+com Foto disponível. Para reduzir custo de fill-rate sem alterar
+`MediaRecorder.maxDimension: 720`, o drawing buffer da experiência limita o DPR
+a 2,0. A próxima coleta Android deverá estabelecer uma nova linha de base para
+essa configuração.
 
 ## Protocolo nos aparelhos
 
@@ -88,8 +141,8 @@ execução representa linha de base ou captura habilitada.
 - nenhum pedido de microfone ou erro fatal de tracking;
 - memória temporária deve voltar a um patamar semelhante após Refazer.
 
-Se o vídeo não atingir o limite relativo, alterar a dimensão máxima para 540 e
-repetir. Se a foto ultrapassar 1,5 segundo, reduzir para 960. Se a gravação ainda
+O vídeo permanece em 720 px. A otimização atual limita somente o DPR do canvas
+visual a 2,0. Se a foto ultrapassar 1,5 segundo, reduzir para 960. Se a gravação
 for inviável em um ambiente suportado, manter Foto e ocultar Vídeo nesse runtime.
 
 ## Limitações

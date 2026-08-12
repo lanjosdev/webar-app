@@ -5,6 +5,15 @@ interface VideoSize {
   width: number;
 }
 
+export const MAX_CANVAS_PIXEL_RATIO = 2;
+
+export function getCanvasPixelRatio(devicePixelRatio: number): number {
+  if (!Number.isFinite(devicePixelRatio)) {
+    return 1;
+  }
+  return Math.min(MAX_CANVAS_PIXEL_RATIO, Math.max(1, devicePixelRatio));
+}
+
 /**
  * Keeps the XR8 drawing buffer synchronized with the mobile viewport.
  *
@@ -87,7 +96,10 @@ export function createFullWindowCanvasModule(): CameraPipelineModule {
   };
 
   function calculateCanvasSize(size: VideoSize): VideoSize {
-    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    // A full 2.75–3x mobile DPR substantially increases the fill-rate cost of
+    // the camera + Three.js canvas. Cap only the display buffer; capture output
+    // remains controlled independently by the official XR8 modules.
+    const pixelRatio = getCanvasPixelRatio(window.devicePixelRatio || 1);
     const viewportWidth = Math.max(1, Math.round(window.innerWidth * pixelRatio));
     const viewportHeight = Math.max(1, Math.round(window.innerHeight * pixelRatio));
 

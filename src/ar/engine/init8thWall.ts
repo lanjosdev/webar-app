@@ -37,6 +37,10 @@ export function startAR(
   return startPromise;
 }
 
+export function whenAREngineReady(): Promise<void> {
+  return XR8Promise.then(() => undefined);
+}
+
 export function stopAR(): void {
   const xr8 = activeXR8;
   const modules = activeModules;
@@ -226,7 +230,6 @@ async function bootstrapAR(
   trackingState.setPhase('loading-engine');
   const xr8 = await waitForEngine();
   activeXR8 = xr8;
-  diagnostics?.mark('engine-ready');
   const allowedDevices = xr8.XrConfig.device().MOBILE;
 
   assertXR8DeviceCompatible(xr8, allowedDevices);

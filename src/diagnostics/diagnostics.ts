@@ -1,9 +1,10 @@
-import type {ARPhase, ARSnapshot, TrackingState} from '../ar/tracking/trackingState';
+import type {ARSnapshot, TrackingState} from '../ar/tracking/trackingState';
 import type {
   CaptureDiagnosticEvent,
   DiagnosticMilestone,
   DiagnosticsSink,
 } from './diagnosticsTypes';
+import {CaptureMetrics, type CaptureMetricsSnapshot} from './captureMetrics';
 import {FrameMetrics} from './frameMetrics';
 
 const LIVE_UPDATE_MS = 500;
@@ -11,6 +12,17 @@ const LIVE_UPDATE_MS = 500;
 interface TimedEvent {
   data?: Record<string, boolean | number | string | undefined>;
   name: string;
+  timeMs: number;
+}
+
+interface MemoryMetrics {
+  jsHeapLimit: number;
+  totalJSHeap: number;
+  usedJSHeap: number;
+}
+
+interface MemorySnapshot extends MemoryMetrics {
+  reason: string;
   timeMs: number;
 }
 
@@ -22,13 +34,18 @@ export interface DiagnosticsController extends DiagnosticsSink {
 export interface DiagnosticsReport {
   capture: {
     events: TimedEvent[];
+    memory: {
+      peakUsedJSHeap?: number;
+      snapshots: MemorySnapshot[];
+    };
     recordingAverageFps?: number;
+    summary: CaptureMetricsSnapshot;
   };
   environment: {
     devicePixelRatio: number;
     effectiveConnection?: string;
     language: string;
-    memory?: {jsHeapLimit: number; totalJSHeap: number; usedJSHeap: number};
+    memory?: MemoryMetrics;
     navigationType?: string;
     platform: string;
     screen: {height: number; width: number};
@@ -54,7 +71,7 @@ export interface DiagnosticsReport {
     generatedAt: string;
     id: string;
     mode: string;
-    schemaVersion: 1;
+    schemaVersion: 2;
   };
   runtime: {
     averageFps?: number;
@@ -62,10 +79,14 @@ export interface DiagnosticsReport {
     p95FrameMs?: number;
     recoveryAverageMs?: number;
     recoveryCount: number;
+    intentionalPauses: number;
+    resumeRecoveryAverageMs?: number;
+    resumeRecoveryCount: number;
     slowFrames: number;
     trackingLosses: number;
   };
   startup: {
+    engineAvailableBeforeStart?: boolean;
     navigationToEngineMs?: number;
     startToCameraMs?: number;
     startToEngineMs?: number;
@@ -74,6 +95,33 @@ export interface DiagnosticsReport {
     startToTrackingReadyMs?: number;
   };
   tracking: TimedEvent[];
+}
+
+export function isSpontaneousTrackingLoss(
+  snapshot: ARSnapshot,
+  previousSnapshot: ARSnapshot,
+  resumeRecoveryActive: boolean,
+): boolean {
+  return snapshot.phase === 'tracking-limited' &&
+    previousSnapshot.phase !== 'tracking-limited' &&
+    !resumeRecoveryActive;
+}
+
+export function calculateEngineStartup(
+  startTime?: number,
+  engineReadyTime?: number,
+): Pick<
+  DiagnosticsReport['startup'],
+  'engineAvailableBeforeStart' | 'startToEngineMs'
+> {
+  if (startTime === undefined || engineReadyTime === undefined) {
+    return {};
+  }
+
+  return {
+    engineAvailableBeforeStart: engineReadyTime <= startTime,
+    startToEngineMs: differenceFromStart(startTime, engineReadyTime),
+  };
 }
 
 export function createDiagnostics(trackingState: TrackingState): DiagnosticsController {
@@ -92,20 +140,33 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
   const milestoneTimes = new Map<DiagnosticMilestone, number>();
   const timeline: TimedEvent[] = [];
   const captureEvents: TimedEvent[] = [];
+  const captureMetrics = new CaptureMetrics();
+  const memorySnapshots: MemorySnapshot[] = [];
   const errors: DiagnosticsReport['errors'] = [];
   const frameMetrics = new FrameMetrics();
   const recoveryDurations: number[] = [];
+  const resumeRecoveryDurations: number[] = [];
   let previousSnapshot = trackingState.current;
   let recoveryStartedAt: number | undefined;
+  let resumeRecoveryStartedAt: number | undefined;
   let trackingLosses = 0;
+  let intentionalPauses = 0;
   let recordingStartFrame = 0;
   let recordingStartTime: number | undefined;
-  let recordingAverageFps: number | undefined;
   let destroyed = false;
 
   panel.hidden = false;
 
   const elapsed = (): number => performance.now() - startedAt;
+
+  const recordMemory = (reason: string, timeMs = elapsed()): void => {
+    const memory = getPerformanceMemory();
+    if (memory && memorySnapshots.length < 64) {
+      memorySnapshots.push({...memory, reason, timeMs});
+    }
+  };
+
+  recordMemory('diagnostics-start', 0);
 
   const mark = (name: DiagnosticMilestone): void => {
     const timeMs = elapsed();
@@ -115,6 +176,11 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
     }
     if (name === 'ar-paused' || name === 'ar-resumed') {
       frameMetrics.resetClock();
+    }
+    if (name === 'ar-paused') {
+      intentionalPauses += 1;
+    } else if (name === 'ar-resumed') {
+      resumeRecoveryStartedAt = timeMs;
     }
   };
 
@@ -133,7 +199,9 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
         ? data.durationMs
         : performance.now() - recordingStartTime;
       const recordedFrames = frameMetrics.frameCount - recordingStartFrame;
-      recordingAverageFps = durationMs > 0 ? recordedFrames * 1000 / durationMs : undefined;
+      const recordingAverageFps = durationMs > 0
+        ? recordedFrames * 1000 / durationMs
+        : undefined;
       eventData = {
         ...data,
         averageFps: optionalRound(recordingAverageFps),
@@ -141,7 +209,17 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
       recordingStartTime = undefined;
     }
 
+    captureMetrics.record(event, eventData);
     captureEvents.push({data: eventData, name: event, timeMs});
+    if (
+      event === 'photo-start' ||
+      event === 'photo-ready' ||
+      event === 'video-start' ||
+      event === 'video-ready' ||
+      event === 'discard'
+    ) {
+      recordMemory(event, timeMs);
+    }
   };
 
   const recordError = (source: 'ar' | 'capture' | 'share', error: unknown): void => {
@@ -174,10 +252,15 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
         recoveryDurations.push(now - recoveryStartedAt);
         recoveryStartedAt = undefined;
       }
-    } else if (
-      isTrackingLoss(snapshot.phase) &&
-      !isTrackingLoss(previousSnapshot.phase)
-    ) {
+      if (resumeRecoveryStartedAt !== undefined) {
+        resumeRecoveryDurations.push(now - resumeRecoveryStartedAt);
+        resumeRecoveryStartedAt = undefined;
+      }
+    } else if (isSpontaneousTrackingLoss(
+      snapshot,
+      previousSnapshot,
+      resumeRecoveryStartedAt !== undefined,
+    )) {
       trackingLosses += 1;
       recoveryStartedAt = now;
     }
@@ -207,13 +290,27 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
       | PerformanceNavigationTiming
       | undefined;
     const memory = getPerformanceMemory();
+    const reportMemorySnapshots = [...memorySnapshots];
+    if (memory) {
+      reportMemorySnapshots.push({...memory, reason: 'report', timeMs: durationMs});
+    }
     const effectiveConnection = getEffectiveConnection();
     const frames = frameMetrics.snapshot();
+    const captureSummary = captureMetrics.snapshot();
+    const engineReadyTime = milestoneTimes.get('engine-ready');
+    const engineStartup = calculateEngineStartup(startTime, engineReadyTime);
 
     return {
       capture: {
         events: [...captureEvents],
-        recordingAverageFps: optionalRound(recordingAverageFps),
+        memory: {
+          peakUsedJSHeap: reportMemorySnapshots.length > 0
+            ? Math.max(...reportMemorySnapshots.map((snapshot) => snapshot.usedJSHeap))
+            : undefined,
+          snapshots: reportMemorySnapshots,
+        },
+        recordingAverageFps: captureSummary.videos.fps.average,
+        summary: captureSummary,
       },
       environment: {
         devicePixelRatio: window.devicePixelRatio,
@@ -241,7 +338,7 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
         generatedAt: new Date().toISOString(),
         id: runId,
         mode: import.meta.env.MODE,
-        schemaVersion: 1,
+        schemaVersion: 2,
       },
       runtime: {
         averageFps: frames.averageFps,
@@ -252,16 +349,19 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
               recoveryDurations.length)
           : undefined,
         recoveryCount: recoveryDurations.length,
+        intentionalPauses,
+        resumeRecoveryAverageMs: average(resumeRecoveryDurations),
+        resumeRecoveryCount: resumeRecoveryDurations.length,
         slowFrames: frames.slowFrames,
         trackingLosses,
       },
       startup: {
+        ...engineStartup,
         navigationToEngineMs: absolutePerformanceTime(
           startedAt,
           milestoneTimes.get('engine-ready'),
         ),
         startToCameraMs: differenceFrom(startTime, milestoneTimes.get('camera-video')),
-        startToEngineMs: differenceFrom(startTime, milestoneTimes.get('engine-ready')),
         startToPipelineMs: differenceFrom(startTime, milestoneTimes.get('pipeline-start')),
         startToSlamMs: differenceFrom(startTime, milestoneTimes.get('slam-ready')),
         startToTrackingReadyMs: differenceFrom(
@@ -336,12 +436,15 @@ export function serializeDiagnosticsReport(report: DiagnosticsReport): string {
   return JSON.stringify(report, null, 2);
 }
 
-function isTrackingLoss(phase: ARPhase): boolean {
-  return phase === 'tracking-limited' || phase === 'tracking-recovering';
-}
-
 function differenceFrom(start?: number, end?: number): number | undefined {
   return start === undefined || end === undefined ? undefined : round(end - start);
+}
+
+function differenceFromStart(start?: number, end?: number): number | undefined {
+  if (start === undefined || end === undefined) {
+    return undefined;
+  }
+  return round(Math.max(0, end - start));
 }
 
 function getPerformanceMemory(): DiagnosticsReport['environment']['memory'] {
@@ -371,6 +474,12 @@ function normalizeError(error: unknown): {message: string; name: string} {
 
 function optionalRound(value?: number): number | undefined {
   return value === undefined ? undefined : round(value);
+}
+
+function average(values: number[]): number | undefined {
+  return values.length === 0
+    ? undefined
+    : round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
 function absolutePerformanceTime(origin: number, elapsedTime?: number): number | undefined {

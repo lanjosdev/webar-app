@@ -17,11 +17,15 @@ export type CaptureDiagnosticEvent =
   | 'video-stop'
   | 'video-preview'
   | 'video-ready'
+  | 'video-finalization-background'
+  | 'video-finalization-complete'
+  | 'video-start-blocked'
   | 'share-start'
   | 'share-complete'
   | 'share-cancelled'
   | 'share-unsupported'
-  | 'download';
+  | 'download'
+  | 'discard';
 
 export interface DiagnosticsSink {
   mark(name: DiagnosticMilestone): void;

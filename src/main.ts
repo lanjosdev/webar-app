@@ -6,6 +6,7 @@ import {
   setARInteractionLocked,
   startAR,
   stopAR,
+  whenAREngineReady,
 } from './ar/engine/init8thWall';
 import {toARError} from './ar/engine/arError';
 import {
@@ -24,6 +25,11 @@ const diagnostics = new URLSearchParams(window.location.search).get('diagnostics
   ? await import('./diagnostics/diagnostics').then(({createDiagnostics}) =>
       createDiagnostics(trackingState))
   : undefined;
+if (diagnostics) {
+  void whenAREngineReady()
+    .then(() => diagnostics.mark('engine-ready'))
+    .catch((error: unknown) => diagnostics.recordError('ar', error));
+}
 const statusUI = createStatusUI(trackingState);
 const motionPermissionUI = createMotionPermissionUI();
 const captureUI = createCaptureUI({
@@ -93,7 +99,7 @@ const handleVisibilityChange = (): void => {
   if (document.visibilityState === 'hidden') {
     captureUI.handleInterruption('hidden');
     pauseAR();
-  } else if (!captureUI.shouldKeepARPaused()) {
+  } else {
     resumeAR();
   }
 };
@@ -109,11 +115,7 @@ const handlePageHide = (event: PageTransitionEvent): void => {
 };
 
 const handlePageShow = (): void => {
-  if (
-    !destroyed &&
-    document.visibilityState === 'visible' &&
-    !captureUI.shouldKeepARPaused()
-  ) {
+  if (!destroyed && document.visibilityState === 'visible') {
     resumeAR();
   }
 };
