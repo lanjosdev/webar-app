@@ -11,12 +11,14 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 12 testes unitários de tracking state e recovery: aprovados em 11 de agosto de 2026;
+- 31 testes unitários de tracking, recovery, captura e métricas: aprovados em 12 de agosto de 2026;
 - testes, typecheck e build local: aprovados em 11 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
 - erros terminais e pausa/retomada por visibilidade: implementados e confirmados manualmente em Android e iPhone em 11 de agosto de 2026;
+- foto JPEG, vídeo MP4 de até 10 segundos, prévia e compartilhamento: implementados, aguardando validação móvel;
+- diagnóstico local por `?diagnostics=1`: implementado, sem backend ou analytics;
 - HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
 
 O POC possui validação manual em Android e iPhone reais. A matriz detalhada de
@@ -119,6 +121,11 @@ O pipeline é registrado nesta ordem:
 4. `XR8.XrController.pipelineModule()`;
 5. módulo de lifecycle da aplicação.
 
+Depois do primeiro placement, os módulos oficiais
+`XR8.CanvasScreenshot.pipelineModule()` e `XR8.MediaRecorder.pipelineModule()`
+são anexados dinamicamente. Assim, a preparação da captura não entra no caminho
+crítico até `tracking-ready`.
+
 O módulo da aplicação obtém a cena por `XR8.Threejs.xrScene()`, cria o controller
 de placement e chama `XR8.XrController.updateCameraProjectionMatrix()` para
 sincronizar a origem da câmera com o controller.
@@ -140,6 +147,25 @@ tracking-recovering
 paused
 error
 ```
+
+## Captura e diagnóstico
+
+Após posicionar o objeto, a barra inferior permite alternar entre Foto e Vídeo.
+A foto usa JPEG de até 1280 px. O vídeo não solicita microfone, usa dimensão
+máxima de 720 px e para automaticamente em 10 segundos. A prévia pausa o AR e
+oferece Refazer, Salvar e Compartilhar; quando o compartilhamento de arquivos
+não é aceito pelo navegador, Salvar permanece disponível.
+
+Para medir startup, frames, tracking e captura, acrescente o parâmetro à URL
+HTTPS usada no aparelho:
+
+```text
+https://sua-url.example/?diagnostics=1
+```
+
+O painel permite registrar modelo, ambiente e aquecimento, copiar ou baixar o
+relatório JSON. Os dados permanecem no navegador. O protocolo completo está em
+[`docs/ar-capture-performance.md`](docs/ar-capture-performance.md).
 
 A UI só recebe transições significativas de estado. O placement mantém um estado
 ortogonal `not-placed | placed`, permitindo preservar o objeto quando o tracking
@@ -363,6 +389,9 @@ de distribuição.
 | `XR8.resume()` | Retomar uma sessão pausada | [XR8.resume](https://8thwall.org/docs/api/engine/xr8/resume) |
 | `XR8.stop()` | Fechar câmera e interromper tracking | [XR8.stop](https://8thwall.org/docs/api/engine/xr8/stop) |
 | `XR8.removeCameraPipelineModules()` | Remover módulos no cleanup | [removeCameraPipelineModules](https://8thwall.org/docs/api/engine/xr8/removecamerapipelinemodules) |
+| `XR8.CanvasScreenshot` | Capturar a composição câmera + Three.js em JPEG | [CanvasScreenshot](https://8thwall.org/docs/api/engine/canvasscreenshot) |
+| `XR8.MediaRecorder` | Gravar e finalizar vídeo MP4 sem áudio | [MediaRecorder](https://8thwall.org/docs/api/engine/mediarecorder) |
+| `navigator.canShare()` / `navigator.share()` | Compartilhar o arquivo com fallback de download | [Web Share API](https://developer.mozilla.org/docs/Web/API/Web_Share_API) |
 
 Fontes consultadas em **11 de agosto de 2026**.
 
@@ -377,4 +406,7 @@ Fontes consultadas em **11 de agosto de 2026**.
 - não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, GLB ou gestos de manipulação;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - modelos, versões e quantidade de ciclos da validação de pausa/retomada ainda precisam ser registrados;
+- foto, gravação, finalização e compartilhamento ainda precisam ser confirmados em Android/Chrome e iPhone/Safari reais;
+- fechar completamente a aba durante uma gravação não garante que o navegador finalize o arquivo;
+- métricas de memória dependem do navegador e normalmente não estão disponíveis no Safari;
 - a licença binária precisa ser reavaliada antes de uso comercial.

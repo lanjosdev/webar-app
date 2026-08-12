@@ -77,6 +77,77 @@
       </button>
 
       <section
+        id="capture-controls"
+        class="capture-controls"
+        aria-label="Capturar experiência"
+        hidden
+      >
+        <div class="capture-mode-selector" role="group" aria-label="Modo de captura">
+          <button id="capture-mode-photo" type="button" aria-pressed="true">Foto</button>
+          <button id="capture-mode-video" type="button" aria-pressed="false">Vídeo</button>
+        </div>
+        <button
+          id="capture-shutter"
+          class="capture-shutter"
+          type="button"
+          aria-label="Tirar foto"
+        >
+          <span class="capture-shutter-core" aria-hidden="true"></span>
+        </button>
+        <p id="capture-timer" class="capture-timer" aria-live="off" hidden>
+          00:00 / 00:10
+        </p>
+        <p id="capture-feedback" class="capture-feedback" aria-live="polite"></p>
+        <button id="capture-retry" class="capture-retry" type="button" hidden>
+          Tentar captura novamente
+        </button>
+      </section>
+
+      <div id="capture-flash" class="capture-flash" aria-hidden="true"></div>
+
+      <section
+        id="capture-processing"
+        class="capture-processing"
+        role="status"
+        aria-live="polite"
+        hidden
+      >
+        <span class="capture-spinner" aria-hidden="true"></span>
+        <p id="capture-processing-message">Preparando vídeo…</p>
+        <progress id="capture-processing-progress" max="1" hidden></progress>
+      </section>
+
+      <section
+        id="capture-preview"
+        class="capture-preview"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="capture-preview-title"
+        hidden
+      >
+        <header>
+          <h2 id="capture-preview-title">Prévia da captura</h2>
+          <p id="capture-preview-status" aria-live="polite"></p>
+        </header>
+        <div class="capture-preview-media">
+          <img id="capture-preview-image" alt="Prévia da foto capturada em realidade aumentada" hidden />
+          <video
+            id="capture-preview-video"
+            aria-label="Prévia do vídeo capturado em realidade aumentada"
+            controls
+            muted
+            playsinline
+            hidden
+          ></video>
+        </div>
+        <div class="capture-preview-actions">
+          <button id="capture-retake" type="button">Refazer</button>
+          <button id="capture-save" type="button">Salvar</button>
+          <button id="capture-share" type="button">Compartilhar</button>
+        </div>
+      </section>
+
+      <section
         id="recenter-confirmation"
         class="recenter-sheet"
         role="alertdialog"
@@ -119,6 +190,60 @@
           <button id="confirm-motion-permission" type="button">Continuar</button>
         </div>
       </section>
+
+      <aside id="diagnostics-panel" class="diagnostics-panel" hidden>
+        <details>
+          <summary>Diagnóstico de performance</summary>
+          <p id="diagnostics-live" class="diagnostics-live" aria-live="polite"></p>
+          <div class="diagnostics-fields">
+            <label>
+              Modelo do aparelho
+              <input id="diagnostics-device-model" type="text" autocomplete="off" />
+            </label>
+            <label>
+              Iluminação
+              <select id="diagnostics-lighting">
+                <option value="not-informed">Não informado</option>
+                <option value="good">Boa</option>
+                <option value="low">Baixa</option>
+                <option value="mixed">Mista</option>
+              </select>
+            </label>
+            <label>
+              Conexão
+              <select id="diagnostics-connection">
+                <option value="not-informed">Não informado</option>
+                <option value="wifi">Wi-Fi</option>
+                <option value="mobile">Dados móveis</option>
+              </select>
+            </label>
+            <label>
+              Aquecimento
+              <select id="diagnostics-heating">
+                <option value="not-informed">Não informado</option>
+                <option value="none">Nenhum</option>
+                <option value="light">Leve</option>
+                <option value="moderate">Moderado</option>
+                <option value="strong">Forte</option>
+              </select>
+            </label>
+            <label>
+              Estabilidade visual
+              <select id="diagnostics-stability">
+                <option value="not-informed">Não informado</option>
+                <option value="stable">Estável</option>
+                <option value="minor-drift">Pequena deriva</option>
+                <option value="unstable">Instável</option>
+              </select>
+            </label>
+          </div>
+          <div class="diagnostics-actions">
+            <button id="diagnostics-copy" type="button">Copiar JSON</button>
+            <button id="diagnostics-download" type="button">Baixar JSON</button>
+          </div>
+          <p id="diagnostics-feedback" class="diagnostics-feedback" aria-live="polite"></p>
+        </details>
+      </aside>
     </main>
 
     <noscript>Ative o JavaScript para iniciar a experiência WebAR.</noscript>

@@ -42,9 +42,44 @@ export interface XRThreeScene {
   scene: Scene;
 }
 
+export interface MediaRecorderResult {
+  videoBlob: Blob;
+}
+
+export interface MediaRecorderCallbacks {
+  onError?: (error: unknown) => void;
+  onFinalizeProgress?: (progress: {progress: number; total: number}) => void;
+  onPreviewReady?: (result: MediaRecorderResult) => void;
+  onStart?: () => void;
+  onStop?: () => void;
+  onVideoReady?: (result: MediaRecorderResult) => void;
+}
+
 export interface XR8 {
+  CanvasScreenshot: {
+    configure(options: {jpgCompression?: number; maxDimension?: number}): void;
+    pipelineModule(): CameraPipelineModule;
+    takeScreenshot(options?: {
+      onProcessFrame?: (args: {ctx: CanvasRenderingContext2D}) => void;
+    }): Promise<string>;
+  };
   GlTextureRenderer: {
     pipelineModule(): CameraPipelineModule;
+  };
+  MediaRecorder: {
+    RequestMicOptions: {
+      AUTO: 'auto';
+      MANUAL: 'manual';
+    };
+    configure(options: {
+      enableEndCard?: boolean;
+      maxDimension?: number;
+      maxDurationMs?: number;
+      requestMic?: 'auto' | 'manual';
+    }): void;
+    pipelineModule(): CameraPipelineModule;
+    recordVideo(callbacks: MediaRecorderCallbacks): void;
+    stopRecording(): void;
   };
   Threejs: {
     pipelineModule(): CameraPipelineModule;

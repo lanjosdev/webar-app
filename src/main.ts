@@ -1,7 +1,9 @@
 import {
   pauseAR,
+  prepareARCapture,
   recenterAR,
   resumeAR,
+  setARInteractionLocked,
   startAR,
   stopAR,
 } from './ar/engine/init8thWall';
@@ -11,17 +13,31 @@ import {
   requestMotionPermission,
 } from './ar/engine/motionPermission';
 import {TrackingState} from './ar/tracking/trackingState';
+import {createCaptureUI} from './ui/capture';
 import {createMotionPermissionUI} from './ui/motionPermission';
 import {createStatusUI} from './ui/status';
 
 const canvas = getCanvas('camera-feed');
 const placementReticle = getElement('placement-reticle');
 const trackingState = new TrackingState();
+const diagnostics = new URLSearchParams(window.location.search).get('diagnostics') === '1'
+  ? await import('./diagnostics/diagnostics').then(({createDiagnostics}) =>
+      createDiagnostics(trackingState))
+  : undefined;
 const statusUI = createStatusUI(trackingState);
 const motionPermissionUI = createMotionPermissionUI();
+const captureUI = createCaptureUI({
+  diagnostics,
+  pauseAR,
+  prepareCapture: prepareARCapture,
+  resumeAR,
+  setInteractionLocked: setARInteractionLocked,
+  trackingState,
+});
 let destroyed = false;
 
 statusUI.onStart(() => {
+  diagnostics?.mark('start-intent');
   if (needsExplicitMotionPermission()) {
     motionPermissionUI.show();
     return;
@@ -46,13 +62,13 @@ motionPermissionUI.onConfirm(async () => {
 
 function beginAR(): void {
   prepareStartAttempt();
-  void startAR(canvas, trackingState, placementReticle).catch((error: unknown) => {
+  void startAR(canvas, trackingState, placementReticle, diagnostics).catch((error: unknown) => {
     handleStartError(error);
   });
 }
 
 function runAR(): Promise<void> {
-  return startAR(canvas, trackingState, placementReticle);
+  return startAR(canvas, trackingState, placementReticle, diagnostics);
 }
 
 function prepareStartAttempt(): void {
@@ -67,6 +83,7 @@ function prepareStartAttempt(): void {
 function handleStartError(error: unknown): void {
   const arError = toARError(error);
   console.error('[WebAR] Failed to start the experience.', error);
+  diagnostics?.recordError('ar', arError);
   trackingState.fail(arError);
 }
 
@@ -74,13 +91,15 @@ statusUI.onRecenter(() => recenterAR());
 
 const handleVisibilityChange = (): void => {
   if (document.visibilityState === 'hidden') {
+    captureUI.handleInterruption('hidden');
     pauseAR();
-  } else {
+  } else if (!captureUI.shouldKeepARPaused()) {
     resumeAR();
   }
 };
 
 const handlePageHide = (event: PageTransitionEvent): void => {
+  captureUI.handleInterruption('pagehide');
   if (event.persisted) {
     pauseAR();
     return;
@@ -90,7 +109,11 @@ const handlePageHide = (event: PageTransitionEvent): void => {
 };
 
 const handlePageShow = (): void => {
-  if (!destroyed && document.visibilityState === 'visible') {
+  if (
+    !destroyed &&
+    document.visibilityState === 'visible' &&
+    !captureUI.shouldKeepARPaused()
+  ) {
     resumeAR();
   }
 };
@@ -104,8 +127,10 @@ const cleanup = (): void => {
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   window.removeEventListener('pagehide', handlePageHide);
   window.removeEventListener('pageshow', handlePageShow);
+  captureUI.destroy();
   motionPermissionUI.destroy();
   statusUI.destroy();
+  diagnostics?.destroy();
   stopAR();
 };
 

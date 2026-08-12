@@ -61,6 +61,12 @@ button {
   visibility: hidden;
 }
 
+#app[data-capture-busy="true"] .placement-reticle,
+#app[data-capture-busy="true"] .recenter-button {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .interaction-blocker {
   position: fixed;
   z-index: 5;
@@ -270,6 +276,354 @@ h1 {
   opacity: 0.65;
 }
 
+.capture-controls {
+  position: fixed;
+  z-index: 4;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(1rem, env(safe-area-inset-left));
+  display: grid;
+  justify-items: center;
+  width: min(20rem, calc(100% - 2rem));
+  margin-inline: auto;
+  pointer-events: none;
+}
+
+.capture-mode-selector,
+.capture-shutter,
+.capture-retry {
+  pointer-events: auto;
+}
+
+.capture-mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.25rem;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(5 13 25 / 82%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 24%);
+  backdrop-filter: blur(16px);
+}
+
+body:has(.diagnostics-panel:not([hidden])) .status-panel {
+  top: calc(max(1rem, env(safe-area-inset-top)) + 3.5rem);
+}
+
+.capture-mode-selector button {
+  min-width: 5rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  color: #c8d5e3;
+  background: transparent;
+  font-weight: 750;
+  touch-action: manipulation;
+}
+
+.capture-mode-selector button[aria-pressed="true"] {
+  color: #03221d;
+  background: #79e5d5;
+}
+
+.capture-mode-selector button:disabled {
+  opacity: 0.62;
+}
+
+.capture-shutter {
+  display: grid;
+  width: 4.75rem;
+  min-width: 4.75rem;
+  height: 4.75rem;
+  min-height: 4.75rem;
+  margin-top: 0.65rem;
+  padding: 0.35rem;
+  place-items: center;
+  border: 0.2rem solid #ffffff;
+  border-radius: 50%;
+  background: rgb(5 13 25 / 42%);
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 34%);
+  touch-action: manipulation;
+}
+
+.capture-shutter-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: border-radius 120ms ease, transform 120ms ease, background 120ms ease;
+}
+
+#app[data-capture-phase="recording"] .capture-shutter {
+  border-color: #ffb0aa;
+}
+
+#app[data-capture-phase="recording"] .capture-shutter-core {
+  width: 52%;
+  height: 52%;
+  border-radius: 0.45rem;
+  background: #ff5148;
+}
+
+.capture-shutter:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.capture-timer,
+.capture-feedback {
+  margin: 0.4rem 0 0;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  color: #f5f8fc;
+  background: rgb(5 13 25 / 74%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  text-shadow: 0 1px 2px #000000;
+  backdrop-filter: blur(10px);
+}
+
+.capture-timer {
+  color: #ffc0bb;
+  font-variant-numeric: tabular-nums;
+}
+
+.capture-feedback:empty {
+  display: none;
+}
+
+.capture-retry {
+  min-height: 3rem;
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #ffc780;
+  border-radius: 0.75rem;
+  color: #f5f8fc;
+  background: rgb(5 13 25 / 90%);
+  font-weight: 750;
+}
+
+.capture-flash {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+
+.capture-flash.is-visible {
+  opacity: 0.78;
+}
+
+.capture-processing {
+  position: fixed;
+  z-index: 18;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: 2rem;
+  color: #f5f8fc;
+  background: rgb(2 8 17 / 82%);
+  text-align: center;
+  backdrop-filter: blur(12px);
+}
+
+.capture-processing p {
+  margin: 0.8rem 0 0;
+  font-weight: 750;
+}
+
+.capture-processing progress {
+  width: min(18rem, 78vw);
+  margin-top: 0.8rem;
+  accent-color: #35d0ba;
+}
+
+.capture-spinner {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0.25rem solid rgb(255 255 255 / 25%);
+  border-top-color: #35d0ba;
+  border-radius: 50%;
+  animation: capture-spin 700ms linear infinite;
+}
+
+.capture-preview {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0.8rem;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: #02060c;
+}
+
+.capture-preview header {
+  text-align: center;
+}
+
+.capture-preview h2,
+.capture-preview p {
+  margin: 0;
+}
+
+.capture-preview h2 {
+  font-size: 1.05rem;
+}
+
+.capture-preview p {
+  min-height: 1.25rem;
+  margin-top: 0.25rem;
+  color: #b9c9da;
+  font-size: 0.82rem;
+}
+
+.capture-preview-media {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #000000;
+}
+
+.capture-preview-media img,
+.capture-preview-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.capture-preview-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.capture-preview-actions button {
+  min-height: 3rem;
+  padding: 0.55rem 0.45rem;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 0.75rem;
+  color: #f5f8fc;
+  background: #111d2b;
+  font-weight: 750;
+  touch-action: manipulation;
+}
+
+#capture-share {
+  border-color: transparent;
+  color: #03221d;
+  background: #35d0ba;
+}
+
+.capture-preview-actions button:disabled {
+  opacity: 0.5;
+}
+
+.diagnostics-panel {
+  position: fixed;
+  z-index: 30;
+  top: max(0.5rem, env(safe-area-inset-top));
+  left: max(0.5rem, env(safe-area-inset-left));
+  width: auto;
+  max-height: calc(100dvh - 1rem);
+  overflow: auto;
+  border: 1px solid rgb(121 229 213 / 45%);
+  border-radius: 0.9rem;
+  color: #f5f8fc;
+  background: rgb(2 8 17 / 92%);
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 38%);
+  font-size: 0.78rem;
+  backdrop-filter: blur(16px);
+}
+
+.diagnostics-panel summary {
+  min-height: 3rem;
+  padding: 0.85rem;
+  color: #79e5d5;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.diagnostics-panel details[open] {
+  width: min(22rem, calc(100vw - 1rem));
+  padding-bottom: 0.85rem;
+}
+
+.diagnostics-live,
+.diagnostics-feedback {
+  margin: 0 0.85rem 0.7rem;
+  color: #c8d5e3;
+}
+
+.diagnostics-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0 0.85rem;
+}
+
+.diagnostics-fields label:first-child {
+  grid-column: 1 / -1;
+}
+
+.diagnostics-fields label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.diagnostics-fields input,
+.diagnostics-fields select {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 0.55rem;
+  color: #f5f8fc;
+  background: #111d2b;
+}
+
+.diagnostics-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  padding: 0.75rem 0.85rem 0;
+}
+
+.diagnostics-actions button {
+  min-height: 2.75rem;
+  border: 1px solid rgb(121 229 213 / 45%);
+  border-radius: 0.6rem;
+  color: #f5f8fc;
+  background: #111d2b;
+  font-weight: 750;
+}
+
+.capture-mode-selector button:focus-visible,
+.capture-shutter:focus-visible,
+.capture-retry:focus-visible,
+.capture-preview-actions button:focus-visible,
+.diagnostics-panel button:focus-visible,
+.diagnostics-panel input:focus-visible,
+.diagnostics-panel select:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+@keyframes capture-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes sheet-enter {
   from {
     opacity: 0;
@@ -286,6 +640,38 @@ h1 {
   .recenter-sheet,
   .motion-permission-sheet {
     animation: none;
+  }
+
+  .capture-flash,
+  .capture-shutter-core {
+    transition: none;
+  }
+
+  .capture-spinner {
+    animation-duration: 1.4s;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 32rem) {
+  .capture-controls {
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    left: auto;
+    width: 12rem;
+  }
+
+  .capture-preview {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .capture-preview header {
+    grid-column: 1 / -1;
+  }
+
+  .capture-preview-actions {
+    grid-template-columns: 7rem;
+    align-content: center;
   }
 }
 

@@ -2,6 +2,9 @@ import {XR8Promise} from '@8thwall/engine-binary';
 import * as THREE from 'three';
 
 import type {TrackingState} from '../tracking/trackingState';
+import type {EngineCaptureSession} from '../capture/engineCapture';
+import {CaptureError} from '../capture/captureTypes';
+import type {DiagnosticsSink} from '../../diagnostics/diagnosticsTypes';
 import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
 import {createPipelineSession, type PipelineSession} from './pipeline';
@@ -10,6 +13,8 @@ const ENGINE_LOAD_TIMEOUT_MS = 15_000;
 
 let activeXR8: XR8 | undefined;
 let activeModules: CameraPipelineModule[] = [];
+let activeCaptureSession: EngineCaptureSession | undefined;
+let captureSessionPromise: Promise<EngineCaptureSession> | undefined;
 let activeSession: PipelineSession | undefined;
 let activeSessionToken: symbol | undefined;
 let activeFatalErrorHandler: ((error: ARError) => void) | undefined;
@@ -22,8 +27,9 @@ export function startAR(
   canvas: HTMLCanvasElement,
   trackingState: TrackingState,
   placementReticle: HTMLElement,
+  diagnostics?: DiagnosticsSink,
 ): Promise<void> {
-  startPromise ??= bootstrapAR(canvas, trackingState, placementReticle).catch((error: unknown) => {
+  startPromise ??= bootstrapAR(canvas, trackingState, placementReticle, diagnostics).catch((error: unknown) => {
     stopAR();
     throw toARError(error);
   });
@@ -34,15 +40,19 @@ export function startAR(
 export function stopAR(): void {
   const xr8 = activeXR8;
   const modules = activeModules;
+  const captureSession = activeCaptureSession;
 
   activeXR8 = undefined;
   activeModules = [];
+  activeCaptureSession = undefined;
+  captureSessionPromise = undefined;
   activeSession = undefined;
   activeSessionToken = undefined;
   activeFatalErrorHandler = undefined;
   activeSessionFailed = false;
   activeRunStarted = false;
   startPromise = undefined;
+  captureSession?.destroy();
 
   if (!xr8) {
     return;
@@ -121,10 +131,70 @@ export function recenterAR(): boolean {
   return activeSession?.recenter() ?? false;
 }
 
+export function setARInteractionLocked(locked: boolean): void {
+  activeSession?.setInteractionLocked(locked);
+}
+
+export function prepareARCapture(): Promise<EngineCaptureSession> {
+  if (activeCaptureSession) {
+    return Promise.resolve(activeCaptureSession);
+  }
+
+  if (captureSessionPromise) {
+    return captureSessionPromise;
+  }
+
+  const xr8 = activeXR8;
+  const sessionToken = activeSessionToken;
+
+  if (!xr8 || !sessionToken || !activeRunStarted || activeSessionFailed) {
+    return Promise.reject(
+      new CaptureError(
+        'CAPTURE_UNAVAILABLE',
+        'A captura ficará disponível quando a sessão AR estiver pronta.',
+      ),
+    );
+  }
+
+  captureSessionPromise = import('../capture/engineCapture')
+    .then(({createEngineCaptureSession}) => {
+      const captureSession = createEngineCaptureSession(xr8);
+
+      if (activeSessionToken !== sessionToken || activeXR8 !== xr8 || activeSessionFailed) {
+        captureSession.destroy();
+        throw new CaptureError(
+          'CAPTURE_UNAVAILABLE',
+          'A sessão AR foi encerrada antes de preparar a captura.',
+        );
+      }
+
+      try {
+        xr8.addCameraPipelineModules(captureSession.modules);
+      } catch (error: unknown) {
+        captureSession.destroy();
+        throw new CaptureError(
+          'CAPTURE_UNAVAILABLE',
+          'O Engine não conseguiu preparar os módulos de captura.',
+          {cause: error},
+        );
+      }
+      activeModules.push(...captureSession.modules);
+      activeCaptureSession = captureSession;
+      return captureSession;
+    })
+    .catch((error: unknown) => {
+      captureSessionPromise = undefined;
+      throw error;
+    });
+
+  return captureSessionPromise;
+}
+
 async function bootstrapAR(
   canvas: HTMLCanvasElement,
   trackingState: TrackingState,
   placementReticle: HTMLElement,
+  diagnostics?: DiagnosticsSink,
 ): Promise<void> {
   const sessionToken = Symbol('webar-session');
   activeSessionToken = sessionToken;
@@ -136,6 +206,7 @@ async function bootstrapAR(
 
     activeSessionFailed = true;
     trackingState.fail(error);
+    diagnostics?.recordError('ar', error);
 
     // Do not tear down XR8 from inside one of its own pipeline callbacks.
     // The token prevents a stale callback from stopping a newer retry session.
@@ -155,6 +226,7 @@ async function bootstrapAR(
   trackingState.setPhase('loading-engine');
   const xr8 = await waitForEngine();
   activeXR8 = xr8;
+  diagnostics?.mark('engine-ready');
   const allowedDevices = xr8.XrConfig.device().MOBILE;
 
   assertXR8DeviceCompatible(xr8, allowedDevices);
@@ -162,6 +234,7 @@ async function bootstrapAR(
   trackingState.setPhase('loading-slam');
   try {
     await xr8.loadChunk('slam');
+    diagnostics?.mark('slam-ready');
   } catch (error: unknown) {
     throw new ARError('SLAM_LOAD_ERROR', 'Falha ao carregar o componente de World Tracking.', {
       cause: error,
@@ -182,6 +255,7 @@ async function bootstrapAR(
     trackingState,
     placementReticle,
     activeFatalErrorHandler,
+    diagnostics,
   );
   const {modules} = session;
   xr8.addCameraPipelineModules(modules);
@@ -195,6 +269,7 @@ async function bootstrapAR(
     canvas,
   });
   activeRunStarted = true;
+  diagnostics?.mark('xr-run');
 
   if (pauseRequested || document.visibilityState === 'hidden') {
     pauseAR();

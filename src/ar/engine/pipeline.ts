@@ -1,4 +1,5 @@
 import type {TrackingState} from '../tracking/trackingState';
+import type {DiagnosticsSink} from '../../diagnostics/diagnosticsTypes';
 import {createTrackingRecoveryController} from '../tracking/trackingRecovery';
 import {createMinimalScene} from '../three/scene';
 import {
@@ -14,6 +15,7 @@ export interface PipelineSession {
   pause(): void;
   recenter(): boolean;
   resume(): void;
+  setInteractionLocked(locked: boolean): void;
 }
 
 export function createPipelineSession(
@@ -21,12 +23,21 @@ export function createPipelineSession(
   trackingState: TrackingState,
   placementReticle: HTMLElement,
   onFatalError: (error: ARError) => void,
+  diagnostics?: DiagnosticsSink,
 ): PipelineSession {
   let disposeScene: (() => void) | undefined;
   let placementController: GroundPlacementController | undefined;
   let fatalErrorReported = false;
+  let interactionLocked = false;
   let paused = false;
+  let placementAllowedByTracking = false;
   const trackingRecovery = createTrackingRecoveryController(trackingState);
+
+  const syncPlacementInteraction = (): void => {
+    placementController?.setEnabled(
+      placementAllowedByTracking && !interactionLocked && !fatalErrorReported && !paused,
+    );
+  };
 
   const reportFatalError = (error: ARError): void => {
     if (fatalErrorReported) {
@@ -34,7 +45,9 @@ export function createPipelineSession(
     }
 
     fatalErrorReported = true;
-    placementController?.setEnabled(false);
+    placementAllowedByTracking = false;
+    syncPlacementInteraction();
+    diagnostics?.recordError('ar', error);
     onFatalError(error);
   };
 
@@ -44,8 +57,10 @@ export function createPipelineSession(
     }
 
     paused = true;
-    placementController?.setEnabled(false);
+    placementAllowedByTracking = false;
+    syncPlacementInteraction();
     trackingRecovery.beginPaused();
+    diagnostics?.mark('ar-paused');
   };
 
   const resume = (): void => {
@@ -54,8 +69,10 @@ export function createPipelineSession(
     }
 
     paused = false;
-    placementController?.setEnabled(false);
+    placementAllowedByTracking = false;
+    syncPlacementInteraction();
     trackingRecovery.beginResuming();
+    diagnostics?.mark('ar-resumed');
   };
 
   const applicationModule: CameraPipelineModule = {
@@ -79,6 +96,9 @@ export function createPipelineSession(
         trackingState.setPhase('requesting-camera');
       } else if (status === 'hasStream' || status === 'hasVideo') {
         trackingState.setPhase('tracking-initializing');
+        if (status === 'hasVideo') {
+          diagnostics?.mark('camera-video');
+        }
       }
     },
 
@@ -111,21 +131,25 @@ export function createPipelineSession(
       });
 
       trackingState.setPhase(paused ? 'paused' : 'tracking-initializing');
+      diagnostics?.mark('pipeline-start');
     },
 
     onUpdate: ({processCpuResult}) => {
       if (fatalErrorReported || paused) {
-        placementController?.setEnabled(false);
+        placementAllowedByTracking = false;
+        syncPlacementInteraction();
         return;
       }
 
+      diagnostics?.recordFrame();
       const reality = processCpuResult?.reality;
-      const placementEnabled = trackingRecovery.update(reality);
-      placementController?.setEnabled(placementEnabled);
+      placementAllowedByTracking = trackingRecovery.update(reality);
+      syncPlacementInteraction();
     },
 
     onException: (error) => {
-      placementController?.setEnabled(false);
+      placementAllowedByTracking = false;
+      syncPlacementInteraction();
       const arError = toARError(error, 'TRACKING_INITIALIZATION_ERROR');
       console.error('[WebAR] XR8 pipeline error', error);
       reportFatalError(arError);
@@ -156,11 +180,18 @@ export function createPipelineSession(
     recenter(): boolean {
       const controller = placementController;
 
-      if (fatalErrorReported || paused || !controller || !trackingRecovery.canRecenter()) {
+      if (
+        fatalErrorReported ||
+        interactionLocked ||
+        paused ||
+        !controller ||
+        !trackingRecovery.canRecenter()
+      ) {
         return false;
       }
 
       controller.setEnabled(false);
+      placementAllowedByTracking = false;
 
       try {
         xr8.XrController.recenter();
@@ -182,5 +213,10 @@ export function createPipelineSession(
     },
 
     resume,
+
+    setInteractionLocked(locked): void {
+      interactionLocked = locked;
+      syncPlacementInteraction();
+    },
   };
 }
