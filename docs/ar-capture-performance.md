@@ -115,6 +115,45 @@ com Foto disponível. Para reduzir custo de fill-rate sem alterar
 a 2,0. A próxima coleta Android deverá estabelecer uma nova linha de base para
 essa configuração.
 
+## Android — terceira rodada e conclusão disponível
+
+A V3 foi coletada em 12/08/2026 no Redmi Note 13 informado pelo usuário, Chrome
+145, Wi-Fi e boa iluminação. Os relatórios ainda usaram o modo `development`;
+por isso, a confirmação no artefato de produção foi incorporada à homologação do
+hosting no ponto 6.
+
+| Medida | Resultado V3 | Aceite |
+| --- | ---: | --- |
+| Mediana da linha de base até `tracking-ready` | 3.298 ms | +5,1% sobre V2; aprovado |
+| Retenção do FPS de referência | 95,9% | aprovado no limite |
+| FPS médio da sessão inativa | 20,84 | estável |
+| FPS médio da sessão de stress | 16,55 | 85,9% da base original |
+| FPS médio durante vídeo | 12,28 | 63,7% da base; reprovado na meta de 80% |
+| Latência mediana das fotos | 121,60 ms | aprovado |
+| Vídeos iniciados/parados/prontos | 10 / 10 / 10 | aprovado |
+| Finalizações após **Refazer** | 6 | aprovado, sem erro |
+| Memória inicial/pico/final | 123 / 157 / 157 MB | novo patamar estável, sem crescimento contínuo |
+
+O limite de DPR em 2,0 não causou perda visual significativa segundo a validação
+manual, mas também não elevou o vídeo a 80% do FPS de referência. Por decisão de
+produto, o vídeo permanece em 720 px. A sessão inativa ficou razoavelmente
+estável até ocorrer um deslocamento significativo após movimento mais rápido,
+circulação e afastamento. Esse comportamento permanece registrado como limitação
+do World Tracking; nenhuma correção de placement foi incorporada nesta rodada.
+
+Em 13/08/2026, um teste Android direcionado confirmou a correção da métrica de
+finalização: um vídeo de 10 segundos foi descartado, uma foto ficou pronta
+enquanto o MP4 continuava em segundo plano e `finalizationMs` registrou 10.041,9
+ms, sem erro ou perda de tracking.
+
+### Estado do ponto 5
+
+O ponto 5 está encerrado para continuidade do projeto com conclusão técnica no
+Android. A matriz equivalente no iPhone não foi executada por indisponibilidade
+temporária do aparelho e continua sendo requisito pendente para aceite
+multiplataforma. Não interpretar esta conclusão como comprovação de performance
+no Safari/iOS.
+
 ## Protocolo nos aparelhos
 
 Para cada plataforma, preserve rede e iluminação entre os ciclos:

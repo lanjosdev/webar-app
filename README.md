@@ -17,13 +17,15 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
 - erros terminais e pausa/retomada por visibilidade: implementados e confirmados manualmente em Android e iPhone em 11 de agosto de 2026;
-- foto JPEG, vídeo MP4 de até 10 segundos, prévia e compartilhamento: validados em Android e iPhone; otimização Android em andamento;
+- foto JPEG, vídeo MP4 de até 10 segundos, prévia e compartilhamento: validados funcionalmente em Android e iPhone;
 - diagnóstico local por `?diagnostics=1`: implementado, sem backend ou analytics;
-- HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto.
+- HTTPS/túnel móvel: fluxo manual com ngrok documentado, sem dependência no projeto;
+- matriz de performance Android: concluída; matriz equivalente no iPhone pendente por indisponibilidade do aparelho;
+- hosting/cache/footprint: configuração Vercel implementada; deploy e homologação dos novos headers pendentes.
 
-O POC possui validação manual em Android e iPhone reais. A matriz detalhada de
-dispositivos, versões e métricas ainda precisa ser registrada para uma validação
-de produção reproduzível.
+O POC possui validação funcional manual em Android e iPhone reais. A matriz
+detalhada de performance foi concluída no Android; o aceite de performance no
+iPhone continua pendente.
 
 ## Pré-requisitos
 
@@ -47,10 +49,11 @@ npm install
 npm run dev
 ```
 
-O script `predev` copia automaticamente os artefatos do Engine para:
+O script `predev` copia automaticamente os artefatos do Engine para um caminho
+versionado, atualmente:
 
 ```text
-public/external/xr/
+public/external/xr/v1.0.0/
 ```
 
 Essa pasta é gerada e não deve ser versionada.
@@ -61,18 +64,21 @@ Essa pasta é gerada e não deve ser versionada.
 npm run test:run
 npm run typecheck
 npm run build
+npm run audit:build
 npm run preview
 ```
 
 Durante o desenvolvimento, `npm test` mantém o Vitest em modo de observação.
 `npm run test:run` executa a suíte uma vez e é o comando indicado para CI.
+`npm run build` já executa a verificação de licença e a auditoria do artefato;
+`npm run audit:build` permite repetir apenas a auditoria sobre o `dist/` atual.
 
 No desktop, valide somente:
 
 - carregamento da página;
 - layout e mensagens de estado;
 - testes unitários, typecheck e build;
-- presença dos artefatos do Engine em `dist/external/xr`;
+- presença dos artefatos do Engine em `dist/external/xr/v1.0.0`;
 - ausência de imports e paths quebrados.
 
 O projeto restringe `XR8.run()` a dispositivos móveis. Não altere para `allowedDevices: ANY` apenas para fazer o World Tracking aparentar funcionamento no desktop.
@@ -81,9 +87,9 @@ O projeto restringe `XR8.run()` a dispositivos móveis. Não altere para `allowe
 
 O projeto fixa `@8thwall/engine-binary` em `1.0.0`.
 
-1. `scripts/copy-8thwall-engine.mjs` copia o conteúdo de `node_modules/@8thwall/engine-binary/dist` para `public/external/xr`.
-2. O Vite copia essa pasta pública para `dist/external/xr` durante o build.
-3. `index.html` carrega `external/xr/xr.js` por um `<script async>`.
+1. `scripts/copy-8thwall-engine.mjs` lê a versão instalada e copia o conteúdo de `node_modules/@8thwall/engine-binary/dist` para `public/external/xr/v<versão>`.
+2. O Vite copia essa pasta pública para `dist/external/xr/v<versão>` durante o build.
+3. `vite.config.mjs` injeta o mesmo caminho versionado e `index.html` carrega `xr.js` por um `<script async>`.
 4. `src/ar/engine/init8thWall.ts` aguarda o objeto `XR8` por meio de `XR8Promise`.
 5. A aplicação chama `await XR8.loadChunk('slam')` antes de configurar e iniciar o pipeline.
 
@@ -169,6 +175,15 @@ https://sua-url.example/?diagnostics=1
 O painel permite registrar modelo, ambiente e aquecimento, copiar ou baixar o
 relatório JSON. Os dados permanecem no navegador. O protocolo completo está em
 [`docs/ar-capture-performance.md`](docs/ar-capture-performance.md).
+
+O contrato de cache, compressão, MIME, headers e auditoria do artefato está em
+[`docs/hosting-production.md`](docs/hosting-production.md).
+
+O ambiente de produção é <https://webar-app-psi.vercel.app/> e está conectado ao
+repositório remoto. O [`vercel.json`](vercel.json) fixa `npm ci`,
+`npm run build`, a publicação de `dist/`, cache imutável para assets/Engine e os
+headers compatíveis com a experiência WebAR. A Vercel negocia Brotli/gzip
+automaticamente.
 
 A UI só recebe transições significativas de estado. O placement mantém um estado
 ortogonal `not-placed | placed`, permitindo preservar o objeto quando o tracking
@@ -360,7 +375,7 @@ Antes de publicar ou transformar o POC em produto, revise:
 - as [orientações de atribuição](https://8thwall.org/docs/open-source).
 
 Para esta aplicação web, os avisos legais são preservados nos arquivos originais
-`external/xr/xr.js` e `external/xr/LICENSE`, que permanecem públicos no deploy e
+`external/xr/v1.0.0/xr.js` e `external/xr/v1.0.0/LICENSE`, que permanecem públicos no deploy e
 acessíveis pelas ferramentas do navegador. O script
 `scripts/verify-8thwall-license.mjs` é executado automaticamente após
 `npm run build` e interrompe o build se esses arquivos ou seus avisos essenciais

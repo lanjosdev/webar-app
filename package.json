@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "prebuild": "npm run copy:engine",
     "build": "tsc --noEmit && vite build",
-    "postbuild": "npm run verify:engine-license",
+    "postbuild": "npm run verify:engine-license && npm run audit:build",
+    "audit:build": "node scripts/audit-production-build.mjs",
+    "verify:deployment": "node scripts/verify-vercel-deployment.mjs",
     "verify:engine-license": "node scripts/verify-8thwall-license.mjs",
     "preview": "vite preview"
   },

@@ -2,8 +2,11 @@ import {existsSync, readFileSync} from 'node:fs'
 import {dirname, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
+import {getEnginePackageInfo} from './engine-package.mjs'
+
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const engineDirectory = resolve(projectRoot, 'dist/external/xr')
+const {publicPath} = getEnginePackageInfo(projectRoot)
+const engineDirectory = resolve(projectRoot, 'dist', publicPath)
 const engineScriptPath = resolve(engineDirectory, 'xr.js')
 const licensePath = resolve(engineDirectory, 'LICENSE')
 
