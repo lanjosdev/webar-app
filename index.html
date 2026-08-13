@@ -69,8 +69,12 @@
             <span class="status-state-indicator" aria-hidden="true"></span>
             <div>
               <p class="status-kicker ds-mark-label">Experiência WebAR</p>
-              <h1 class="status-title status-title--default">BIZSYS no seu espaço.</h1>
-              <h1 class="status-title status-title--error">Não foi possível iniciar.</h1>
+              <h1 class="status-title status-title--default">
+                Sua marca ocupa novos espaços.
+              </h1>
+              <h1 class="status-title status-title--error">
+                Não foi possível iniciar.
+              </h1>
               <p id="status-message">Pronto para iniciar a experiência.</p>
               <p id="error-details" class="error-details" hidden></p>
             </div>
@@ -78,7 +82,11 @@
         </div>
 
         <div class="status-actions">
-          <button id="start-ar" class="ds-button ds-button--large" type="button">
+          <button
+            id="start-ar"
+            class="ds-button ds-button--large"
+            type="button"
+          >
             Iniciar experiência
           </button>
           <p class="status-privacy">
@@ -108,9 +116,17 @@
         aria-label="Capturar experiência"
         hidden
       >
-        <div class="capture-mode-selector" role="group" aria-label="Modo de captura">
-          <button id="capture-mode-photo" type="button" aria-pressed="true">Foto</button>
-          <button id="capture-mode-video" type="button" aria-pressed="false">Vídeo</button>
+        <div
+          class="capture-mode-selector"
+          role="group"
+          aria-label="Modo de captura"
+        >
+          <button id="capture-mode-photo" type="button" aria-pressed="true">
+            Foto
+          </button>
+          <button id="capture-mode-video" type="button" aria-pressed="false">
+            Vídeo
+          </button>
         </div>
         <button
           id="capture-shutter"
@@ -123,7 +139,11 @@
         <p id="capture-timer" class="capture-timer" aria-live="off" hidden>
           00:00 / 00:10
         </p>
-        <p id="capture-feedback" class="capture-feedback" aria-live="polite"></p>
+        <p
+          id="capture-feedback"
+          class="capture-feedback"
+          aria-live="polite"
+        ></p>
         <button
           id="capture-retry"
           class="capture-retry ds-button ds-button--outline"
@@ -199,7 +219,9 @@
           >
             Salvar
           </button>
-          <button id="capture-share" class="ds-button" type="button">Compartilhar</button>
+          <button id="capture-share" class="ds-button" type="button">
+            Compartilhar
+          </button>
         </div>
       </section>
 
@@ -251,7 +273,9 @@
         <div class="sheet-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
             <rect x="7" y="2" width="10" height="20" rx="2"></rect>
-            <path d="M11 18h2M3.5 8.5a9 9 0 0 0 0 7M20.5 8.5a9 9 0 0 1 0 7"></path>
+            <path
+              d="M11 18h2M3.5 8.5a9 9 0 0 0 0 7M20.5 8.5a9 9 0 0 1 0 7"
+            ></path>
           </svg>
         </div>
         <h2 id="motion-permission-title">Permitir sensores de movimento</h2>
@@ -267,7 +291,11 @@
           >
             Agora não
           </button>
-          <button id="confirm-motion-permission" class="ds-button" type="button">
+          <button
+            id="confirm-motion-permission"
+            class="ds-button"
+            type="button"
+          >
             Continuar
           </button>
         </div>
@@ -276,11 +304,19 @@
       <aside id="diagnostics-panel" class="diagnostics-panel" hidden>
         <details>
           <summary>Diagnóstico de performance</summary>
-          <p id="diagnostics-live" class="diagnostics-live" aria-live="polite"></p>
+          <p
+            id="diagnostics-live"
+            class="diagnostics-live"
+            aria-live="polite"
+          ></p>
           <div class="diagnostics-fields">
             <label>
               Modelo do aparelho
-              <input id="diagnostics-device-model" type="text" autocomplete="off" />
+              <input
+                id="diagnostics-device-model"
+                type="text"
+                autocomplete="off"
+              />
             </label>
             <label>
               Iluminação
@@ -323,7 +359,11 @@
             <button id="diagnostics-copy" type="button">Copiar JSON</button>
             <button id="diagnostics-download" type="button">Baixar JSON</button>
           </div>
-          <p id="diagnostics-feedback" class="diagnostics-feedback" aria-live="polite"></p>
+          <p
+            id="diagnostics-feedback"
+            class="diagnostics-feedback"
+            aria-live="polite"
+          ></p>
         </details>
       </aside>
     </main>

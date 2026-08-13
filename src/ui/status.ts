@@ -1,21 +1,26 @@
-import type {ARPhase, ARSnapshot, TrackingState} from '../ar/tracking/trackingState';
+import type {
+  ARPhase,
+  ARSnapshot,
+  TrackingState,
+} from "../ar/tracking/trackingState";
 
 const PHASE_MESSAGES: Record<ARPhase, string> = {
-  idle: 'Pronto para iniciar a experiência.',
-  'loading-engine': 'Carregando o 8th Wall Engine…',
-  'loading-slam': 'Preparando o World Tracking…',
-  'loading-model': 'Carregando o modelo 3D…',
-  'requesting-motion': 'Autorize o acesso aos sensores de movimento para continuar.',
-  'requesting-camera': 'Permita o acesso à câmera para continuar.',
-  'tracking-initializing':
-    'Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.',
-  'tracking-ready': 'Mire no chão e toque para posicionar.',
-  'tracking-limited':
-    'Tracking instável. Mova o celular lentamente e aponte para um piso iluminado e com textura.',
-  'tracking-recovering':
-    'Recuperando o tracking. Aponte para o piso e mova o celular lentamente.',
-  paused: 'Experiência pausada. Volte para esta página para retomar.',
-  error: 'Não foi possível iniciar a experiência.',
+  idle: "Visualize produtos e modelos 3D no ambiente ao seu redor direto pelo navegador.",
+  "loading-engine": "Carregando o 8th Wall Engine…",
+  "loading-slam": "Preparando o World Tracking…",
+  "loading-model": "Carregando o modelo 3D…",
+  "requesting-motion":
+    "Autorize o acesso aos sensores de movimento para continuar.",
+  "requesting-camera": "Permita o acesso à câmera para continuar.",
+  "tracking-initializing":
+    "Inicializando o tracking. Aponte para um piso texturizado e movimente lentamente.",
+  "tracking-ready": "Mire no chão e toque para posicionar.",
+  "tracking-limited":
+    "Tracking instável. Mova o celular lentamente e aponte para um piso iluminado e com textura.",
+  "tracking-recovering":
+    "Recuperando o tracking. Aponte para o piso e mova o celular lentamente.",
+  paused: "Experiência pausada. Volte para esta página para retomar.",
+  error: "Não foi possível iniciar a experiência.",
 };
 
 export interface StatusUI {
@@ -25,16 +30,17 @@ export interface StatusUI {
 }
 
 export function createStatusUI(trackingState: TrackingState): StatusUI {
-  const app = getElement<HTMLElement>('app');
-  const panel = getElement<HTMLElement>('status-panel');
-  const message = getElement<HTMLParagraphElement>('status-message');
-  const errorDetails = getElement<HTMLParagraphElement>('error-details');
-  const startButton = getElement<HTMLButtonElement>('start-ar');
-  const recenterButton = getElement<HTMLButtonElement>('recenter-ar');
-  const confirmation = getElement<HTMLElement>('recenter-confirmation');
-  const cancelRecenterButton = getElement<HTMLButtonElement>('cancel-recenter');
-  const confirmRecenterButton = getElement<HTMLButtonElement>('confirm-recenter');
-  const interactionBlocker = getElement<HTMLElement>('interaction-blocker');
+  const app = getElement<HTMLElement>("app");
+  const panel = getElement<HTMLElement>("status-panel");
+  const message = getElement<HTMLParagraphElement>("status-message");
+  const errorDetails = getElement<HTMLParagraphElement>("error-details");
+  const startButton = getElement<HTMLButtonElement>("start-ar");
+  const recenterButton = getElement<HTMLButtonElement>("recenter-ar");
+  const confirmation = getElement<HTMLElement>("recenter-confirmation");
+  const cancelRecenterButton = getElement<HTMLButtonElement>("cancel-recenter");
+  const confirmRecenterButton =
+    getElement<HTMLButtonElement>("confirm-recenter");
+  const interactionBlocker = getElement<HTMLElement>("interaction-blocker");
   let startHandler: (() => void) | undefined;
   let recenterHandler: (() => boolean) | undefined;
   let currentSnapshot = trackingState.current;
@@ -55,9 +61,10 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
     interactionBlocker.hidden = !open;
 
     if (open) {
-      previousFocus = document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      previousFocus =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
       recenterButton.hidden = true;
       cancelRecenterButton.focus();
       return;
@@ -93,7 +100,7 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
   };
 
   const handleRecenterClick = (): void => {
-    if (currentSnapshot.placement === 'placed') {
+    if (currentSnapshot.placement === "placed") {
       setConfirmationOpen(true);
       return;
     }
@@ -108,40 +115,46 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
       return;
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === "Escape") {
       event.preventDefault();
       setConfirmationOpen(false);
       return;
     }
 
-    if (event.key !== 'Tab') {
+    if (event.key !== "Tab") {
       return;
     }
 
     if (event.shiftKey && document.activeElement === cancelRecenterButton) {
       event.preventDefault();
       confirmRecenterButton.focus();
-    } else if (!event.shiftKey && document.activeElement === confirmRecenterButton) {
+    } else if (
+      !event.shiftKey &&
+      document.activeElement === confirmRecenterButton
+    ) {
       event.preventDefault();
       cancelRecenterButton.focus();
     }
   };
 
-  startButton.addEventListener('click', handleStartClick);
-  recenterButton.addEventListener('click', handleRecenterClick);
-  cancelRecenterButton.addEventListener('click', handleCancelRecenterClick);
-  confirmRecenterButton.addEventListener('click', submitRecenter);
-  document.addEventListener('keydown', handleConfirmationKeydown);
+  startButton.addEventListener("click", handleStartClick);
+  recenterButton.addEventListener("click", handleRecenterClick);
+  cancelRecenterButton.addEventListener("click", handleCancelRecenterClick);
+  confirmRecenterButton.addEventListener("click", submitRecenter);
+  document.addEventListener("keydown", handleConfirmationKeydown);
 
   const unsubscribe = trackingState.subscribe((snapshot) => {
     currentSnapshot = snapshot;
     const canShowRecenter = isRecenterPhase(snapshot.phase);
 
-    if (!canShowRecenter || snapshot.placement !== 'placed') {
+    if (!canShowRecenter || snapshot.placement !== "placed") {
       setConfirmationOpen(false, false);
     }
 
-    if (snapshot.phase !== 'tracking-ready' && snapshot.phase !== 'tracking-limited') {
+    if (
+      snapshot.phase !== "tracking-ready" &&
+      snapshot.phase !== "tracking-limited"
+    ) {
       isSubmittingRecenter = false;
     }
 
@@ -165,11 +178,14 @@ export function createStatusUI(trackingState: TrackingState): StatusUI {
     destroy(): void {
       setConfirmationOpen(false, false);
       unsubscribe();
-      startButton.removeEventListener('click', handleStartClick);
-      recenterButton.removeEventListener('click', handleRecenterClick);
-      cancelRecenterButton.removeEventListener('click', handleCancelRecenterClick);
-      confirmRecenterButton.removeEventListener('click', submitRecenter);
-      document.removeEventListener('keydown', handleConfirmationKeydown);
+      startButton.removeEventListener("click", handleStartClick);
+      recenterButton.removeEventListener("click", handleRecenterClick);
+      cancelRecenterButton.removeEventListener(
+        "click",
+        handleCancelRecenterClick,
+      );
+      confirmRecenterButton.removeEventListener("click", submitRecenter);
+      document.removeEventListener("keydown", handleConfirmationKeydown);
       startHandler = undefined;
       recenterHandler = undefined;
     },
@@ -199,12 +215,13 @@ function render(
   panel.dataset.placement = snapshot.placement;
   message.textContent = getStatusMessage(snapshot);
 
-  const canStart = snapshot.phase === 'idle' || snapshot.phase === 'error';
+  const canStart = snapshot.phase === "idle" || snapshot.phase === "error";
   startButton.hidden = !canStart;
   startButton.disabled = !canStart;
-  startButton.textContent = snapshot.phase === 'error'
-    ? 'Tentar novamente'
-    : 'Iniciar experiência';
+  startButton.textContent =
+    snapshot.phase === "error"
+      ? "Tentar novamente"
+      : "Iniciar experiência webAR";
 
   const canRecenter = isRecenterPhase(snapshot.phase);
   recenterButton.hidden = !canRecenter || !confirmation.hidden;
@@ -215,12 +232,12 @@ function render(
     errorDetails.textContent = `Código: ${snapshot.error.code}`;
   } else {
     errorDetails.hidden = true;
-    errorDetails.textContent = '';
+    errorDetails.textContent = "";
   }
 }
 
 function isRecenterPhase(phase: ARPhase): boolean {
-  return phase === 'tracking-ready' || phase === 'tracking-limited';
+  return phase === "tracking-ready" || phase === "tracking-limited";
 }
 
 export function getStatusMessage(snapshot: ARSnapshot): string {
@@ -228,8 +245,8 @@ export function getStatusMessage(snapshot: ARSnapshot): string {
     return snapshot.error.message;
   }
 
-  if (snapshot.phase === 'tracking-ready' && snapshot.placement === 'placed') {
-    return 'Objeto posicionado. Mire e toque novamente para reposicionar.';
+  if (snapshot.phase === "tracking-ready" && snapshot.placement === "placed") {
+    return "Objeto posicionado. Mire e toque novamente para reposicionar.";
   }
 
   return PHASE_MESSAGES[snapshot.phase];
