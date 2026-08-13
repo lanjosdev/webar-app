@@ -1,0 +1,280 @@
+.capture-controls {
+  position: fixed;
+  z-index: 4;
+  right: var(--safe-right);
+  bottom: var(--safe-bottom);
+  left: var(--safe-left);
+  display: grid;
+  justify-items: center;
+  width: min(20rem, calc(100% - var(--safe-left) - var(--safe-right)));
+  margin-inline: auto;
+  padding-top: var(--space-16);
+  pointer-events: none;
+}
+
+.capture-mode-selector,
+.capture-shutter,
+.capture-retry {
+  pointer-events: auto;
+}
+
+.capture-mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--hud);
+  box-shadow: var(--shadow-hud);
+  backdrop-filter: blur(16px) saturate(0%);
+  -webkit-backdrop-filter: blur(16px) saturate(0%);
+}
+
+.capture-mode-selector button {
+  min-width: 5rem;
+  min-height: var(--touch-target);
+  padding: 0.5rem 0.875rem;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--gray-6);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+}
+
+.capture-mode-selector button[aria-pressed='true'] {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.capture-shutter {
+  display: grid;
+  width: 4.5rem;
+  min-width: 4.5rem;
+  height: 4.5rem;
+  min-height: 4.5rem;
+  margin-top: var(--space-3);
+  padding: 0.375rem;
+  place-items: center;
+  border: 1px solid var(--foreground);
+  border-radius: 50%;
+  background: color-mix(in oklch, var(--hud) 65%, transparent);
+  box-shadow: var(--shadow-hud);
+  transition: transform var(--duration-fast) var(--ease-out);
+  touch-action: manipulation;
+}
+
+.capture-shutter:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+.capture-shutter-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--foreground);
+  transition:
+    width var(--duration-fast) var(--ease-out),
+    height var(--duration-fast) var(--ease-out),
+    border-radius var(--duration-fast) var(--ease-out);
+}
+
+#app[data-capture-phase='recording'] .capture-shutter-core {
+  width: 50%;
+  height: 50%;
+  border-radius: var(--radius-sm);
+}
+
+.capture-timer,
+.capture-feedback {
+  margin: var(--space-2) 0 0;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--foreground);
+  background: var(--hud);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px) saturate(0%);
+  -webkit-backdrop-filter: blur(10px) saturate(0%);
+}
+
+.capture-timer {
+  font-variant-numeric: tabular-nums;
+}
+
+.capture-feedback:empty {
+  display: none;
+}
+
+.capture-retry {
+  min-height: var(--touch-target);
+  margin-top: var(--space-2);
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  color: var(--foreground);
+  background: var(--hud-strong);
+  font-weight: 600;
+}
+
+.capture-flash {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  background: var(--foreground);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+
+.capture-flash.is-visible {
+  opacity: 0.82;
+}
+
+.capture-processing {
+  position: fixed;
+  z-index: 18;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  padding: var(--space-8);
+  color: var(--foreground);
+  background: var(--overlay-strong);
+  text-align: center;
+  backdrop-filter: blur(14px) saturate(0%);
+  -webkit-backdrop-filter: blur(14px) saturate(0%);
+}
+
+.capture-processing p {
+  margin: var(--space-5) 0 0;
+  font-weight: 500;
+}
+
+.capture-processing progress {
+  width: min(18rem, 78vw);
+  height: 0.25rem;
+  margin-top: var(--space-4);
+  accent-color: var(--foreground);
+}
+
+.capture-spinner {
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--border-strong);
+  border-top-color: var(--foreground);
+  border-radius: 50%;
+  animation: ds-spin 800ms linear infinite;
+}
+
+.capture-preview {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  background: var(--background);
+}
+
+.capture-preview header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.capture-preview__brand {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.capture-preview__heading {
+  min-width: 0;
+  text-align: right;
+}
+
+.capture-preview h2,
+.capture-preview p {
+  margin: 0;
+}
+
+.capture-preview h2 {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.capture-preview p {
+  min-height: 1rem;
+  margin-top: var(--space-1);
+  color: var(--gray-5);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+}
+
+.capture-preview-media {
+  display: grid;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: oklch(0 0 0);
+}
+
+.capture-preview-media img,
+.capture-preview-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.capture-preview-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.capture-preview-actions button {
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.625rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+@media (orientation: landscape) and (max-height: 32rem) {
+  .capture-controls {
+    right: var(--safe-right);
+    bottom: var(--safe-bottom);
+    left: auto;
+    width: 12rem;
+  }
+
+  .capture-preview {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .capture-preview header {
+    grid-column: 1 / -1;
+  }
+
+  .capture-preview-actions {
+    grid-template-columns: 7.5rem;
+    align-content: center;
+  }
+}

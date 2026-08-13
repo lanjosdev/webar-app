@@ -12,7 +12,7 @@ implementa múltiplos planos, anchors, escala física, gestos ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 58 testes unitários de tracking, modelo 3D, animação, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
+- 61 testes de tracking, modelo 3D, animação, recovery, captura, métricas e contrato de UI: aprovados em 13 de agosto de 2026;
 - testes, typecheck e build local: aprovados em 13 de agosto de 2026;
 - smoke tests anteriores em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen e tracking confirmados; validação móvel do GLB pendente;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
@@ -58,6 +58,20 @@ public/external/xr/v1.0.0/
 ```
 
 Essa pasta é gerada e não deve ser versionada.
+
+### Design system BIZSYS
+
+A aplicação e o catálogo visual usam a mesma fundação monocromática. Com o
+servidor de desenvolvimento ativo, abra:
+
+```text
+http://localhost:5173/design-system.html
+```
+
+Os contratos de tokens, componentes, temas, acessibilidade e contribuição estão
+documentados em `docs/bizsys-design-system.md`. As fontes Space Grotesk e IBM
+Plex Mono são empacotadas localmente pelo Vite; não há requisição ao Google
+Fonts em runtime.
 
 ## Validação local
 
@@ -242,8 +256,17 @@ src/
 │   ├── 8thwall-engine-binary.d.ts
 │   └── window.d.ts
 ├── ui/
+│   ├── capture.ts
+│   ├── motionPermission.ts
 │   └── status.ts
 └── styles/
+    ├── design-system/
+    │   ├── tokens.css
+    │   ├── components.css
+    │   └── index.css
+    ├── app-shell.css
+    ├── capture.css
+    ├── diagnostics.css
     └── global.css
 ```
 

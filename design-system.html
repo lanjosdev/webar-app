@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#202020" />
+    <meta
+      name="description"
+      content="Catálogo visual do design system BIZSYS WebAR"
+    />
+    <title>BIZSYS · Design System WebAR</title>
+    <link rel="icon" type="image/png" href="/brand/bizsys-favicon.png" />
+    <link rel="stylesheet" href="/src/styles/design-system/catalog.css" />
+  </head>
+  <body class="catalog-page">
+    <header class="catalog-header ds-glass">
+      <div class="catalog-container catalog-header__inner">
+        <a class="catalog-brand" href="#top" aria-label="BIZSYS Design System">
+          <img
+            class="catalog-brand__dark"
+            src="/brand/bizsys-wordmark-white.png"
+            width="593"
+            height="114"
+            alt="BIZSYS"
+          />
+          <img
+            class="catalog-brand__light"
+            src="/brand/bizsys-wordmark-black.png"
+            width="593"
+            height="114"
+            alt="BIZSYS"
+          />
+        </a>
+        <div class="catalog-header__actions">
+          <span class="ds-mark-label">WebAR · v1.0</span>
+          <button
+            id="theme-toggle"
+            class="ds-button ds-button--outline catalog-theme-toggle"
+            type="button"
+            aria-pressed="false"
+          >
+            Tema claro
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="catalog-hero">
+        <div class="catalog-hero__grid ds-grid-hairline" aria-hidden="true"></div>
+        <div class="catalog-container catalog-hero__content">
+          <p class="ds-mark-label">Monochrome · Spatial · Minimal</p>
+          <h1>Interfaces que deixam o mundo real falar.</h1>
+          <p>
+            A base visual da experiência BIZSYS: croma zero, centro livre e
+            controles precisos nas bordas seguras da câmera.
+          </p>
+          <div class="catalog-hero__actions">
+            <a class="ds-button ds-button--large" href="#components">Ver componentes</a>
+            <a class="ds-button ds-button--large ds-button--outline" href="/">
+              Abrir experiência AR
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <div class="catalog-container catalog-sections">
+        <section id="foundations" class="catalog-section">
+          <header class="catalog-section__header">
+            <div>
+              <span class="ds-mark-label">01 · Fundamentos</span>
+              <h2>Precisão antes de decoração.</h2>
+            </div>
+            <p>Uma rampa achromática, duas famílias tipográficas e um grid de 4px.</p>
+          </header>
+
+          <div class="catalog-grid catalog-grid--two">
+            <article class="ds-panel catalog-panel catalog-panel--wide">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Escala achromática</span>
+              </header>
+              <div class="ds-panel__body">
+                <div class="catalog-ramp" aria-label="Rampa de cinzas BIZSYS">
+                  <div><span style="--swatch: var(--gray-0)"></span><code>0</code></div>
+                  <div><span style="--swatch: var(--gray-1)"></span><code>1</code></div>
+                  <div><span style="--swatch: var(--gray-2)"></span><code>2</code></div>
+                  <div><span style="--swatch: var(--gray-3)"></span><code>3</code></div>
+                  <div><span style="--swatch: var(--gray-4)"></span><code>4</code></div>
+                  <div><span style="--swatch: var(--gray-5)"></span><code>5</code></div>
+                  <div><span style="--swatch: var(--gray-6)"></span><code>6</code></div>
+                  <div><span style="--swatch: var(--gray-7)"></span><code>7</code></div>
+                  <div><span style="--swatch: var(--gray-8)"></span><code>8</code></div>
+                </div>
+              </div>
+            </article>
+
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Tipografia</span>
+              </header>
+              <div class="ds-panel__body catalog-type-sample">
+                <p class="catalog-type-display">Space Grotesk</p>
+                <span>Display · 400–600 · tracking −2%</span>
+                <hr />
+                <p class="catalog-type-mono">IBM PLEX MONO</p>
+                <span>Labels · estados · telemetria</span>
+              </div>
+            </article>
+
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Geometria</span>
+              </header>
+              <div class="ds-panel__body catalog-geometry">
+                <div class="catalog-geometry__square">4</div>
+                <div class="catalog-geometry__panel">8</div>
+                <div class="catalog-geometry__circle">44</div>
+                <p>Painéis contidos; ações completamente circulares.</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="components" class="catalog-section">
+          <header class="catalog-section__header">
+            <div>
+              <span class="ds-mark-label">02 · Componentes</span>
+              <h2>Um vocabulário consistente.</h2>
+            </div>
+            <p>Sólidos fora da sessão; vidro dessaturado sobre o feed da câmera.</p>
+          </header>
+
+          <div class="catalog-grid catalog-grid--two">
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Ações</span>
+              </header>
+              <div class="ds-panel__body catalog-component-stack">
+                <div class="catalog-component-row">
+                  <button class="ds-button" type="button">Primária</button>
+                  <button class="ds-button ds-button--outline" type="button">Outline</button>
+                  <button class="ds-button ds-button--ghost" type="button">Ghost</button>
+                  <button class="ds-icon-button ds-icon-button--outline" type="button" aria-label="Recentrar">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"></path>
+                      <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"></path>
+                    </svg>
+                  </button>
+                </div>
+                <div class="catalog-component-row">
+                  <span class="ds-badge ds-badge--solid">Tracking</span>
+                  <span class="ds-badge">Inicializando</span>
+                  <span class="ds-pill ds-glass">
+                    <span class="ds-status-dot ds-status-dot--pulse"></span>
+                    Recuperando
+                  </span>
+                </div>
+              </div>
+            </article>
+
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Entradas</span>
+              </header>
+              <div class="ds-panel__body catalog-fields">
+                <label class="ds-field">
+                  Nome da cena
+                  <input type="text" value="BIZSYS / Sala 01" />
+                </label>
+                <label class="ds-field">
+                  Qualidade
+                  <select>
+                    <option>Equilibrada</option>
+                    <option>Alta performance</option>
+                  </select>
+                </label>
+              </div>
+            </article>
+
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Permissão</span>
+              </header>
+              <div class="ds-panel__body">
+                <div class="catalog-permission-icon" aria-hidden="true">◎</div>
+                <h3>Permitir acesso à câmera</h3>
+                <p class="catalog-muted">
+                  Necessário para posicionar o objeto no ambiente. Nada é enviado.
+                </p>
+                <div class="catalog-component-row catalog-component-row--actions">
+                  <button class="ds-button" type="button">Permitir</button>
+                  <button class="ds-button ds-button--ghost" type="button">Agora não</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="ds-panel catalog-panel">
+              <header class="ds-panel__header">
+                <span class="ds-mark-label">Estados de tracking</span>
+              </header>
+              <div class="ds-panel__body catalog-states">
+                <p><span class="ds-status-dot ds-status-dot--pulse"></span> Inicializando</p>
+                <p><span class="ds-status-dot"></span> Tracking pronto</p>
+                <p><span class="ds-status-dot catalog-state-muted"></span> Tracking limitado</p>
+                <p><span class="ds-status-dot ds-status-dot--outline"></span> Sessão pausada</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="ar-surface" class="catalog-section">
+          <header class="catalog-section__header">
+            <div>
+              <span class="ds-mark-label">03 · Superfície AR</span>
+              <h2>O centro pertence à experiência.</h2>
+            </div>
+            <p>Todo chrome fica nas bordas seguras e preserva o enquadramento.</p>
+          </header>
+
+          <div class="catalog-grid catalog-grid--ar">
+            <div class="catalog-ar-viewport" aria-label="Exemplo visual da interface AR">
+              <div class="catalog-ar-grid ds-grid-hairline" aria-hidden="true"></div>
+              <div class="catalog-ar-top">
+                <span class="ds-pill ds-glass ds-hud-shadow">
+                  <span class="ds-status-dot"></span>
+                  Tracking pronto
+                </span>
+              </div>
+              <div class="catalog-reticle" aria-hidden="true">
+                <span></span>
+                <i></i>
+              </div>
+              <div class="catalog-scan-frame" aria-hidden="true"><span></span></div>
+              <div class="catalog-ar-bottom">
+                <button class="ds-icon-button ds-icon-button--outline ds-glass" type="button" aria-label="Recentrar">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="6.5"></circle>
+                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
+                  </svg>
+                </button>
+                <button class="catalog-shutter" type="button" aria-label="Capturar"><span></span></button>
+                <span class="catalog-ar-spacer" aria-hidden="true"></span>
+              </div>
+            </div>
+
+            <div class="catalog-principles">
+              <article class="ds-panel catalog-panel">
+                <header class="ds-panel__header">
+                  <span class="ds-mark-label">Princípios de adoção</span>
+                </header>
+                <ol class="ds-panel__body catalog-checklist">
+                  <li><span>01</span>Croma zero em qualquer overlay de câmera.</li>
+                  <li><span>02</span>Alvos de toque com pelo menos 44px.</li>
+                  <li><span>03</span>Centro livre, sem chrome decorativo.</li>
+                  <li><span>04</span>Texto sempre apoiado por vidro ou scrim.</li>
+                  <li><span>05</span>Movimento apenas para estado e feedback.</li>
+                </ol>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="catalog-footer">
+      <div class="catalog-container">
+        <span class="ds-mark-label">BIZSYS · Design System WebAR · v1.0</span>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/design-system.ts"></script>
+  </body>
+</html>

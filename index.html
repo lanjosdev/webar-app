@@ -6,17 +6,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#07111f" />
+    <meta name="theme-color" content="#202020" />
     <meta
       name="description"
-      content="POC mínimo de WebAR World Tracking com 8th Wall e Three.js"
+      content="Experiência WebAR BIZSYS com World Tracking"
     />
-    <title>WebAR World Tracking POC</title>
+    <title>BIZSYS · Experiência WebAR</title>
+    <link rel="icon" type="image/png" href="/brand/bizsys-favicon.png" />
     <link rel="stylesheet" href="/src/styles/global.css" />
     <script src="%BASE_URL%__8THWALL_ENGINE_PATH__/xr.js" async></script>
   </head>
   <body>
-    <main id="app">
+    <main id="app" data-capture-busy="false" data-capture-phase="unavailable">
       <canvas
         id="camera-feed"
         aria-label="Visualização da câmera com conteúdo em realidade aumentada"
@@ -27,7 +28,9 @@
         class="placement-reticle"
         aria-hidden="true"
         hidden
-      ></div>
+      >
+        <span class="reticle-crosshair" aria-hidden="true"></span>
+      </div>
 
       <div
         id="interaction-blocker"
@@ -50,26 +53,49 @@
         data-placement="not-placed"
         aria-live="polite"
       >
-        <p class="eyebrow">8th Wall · World Tracking</p>
-        <h1>WebAR POC</h1>
-        <p id="status-message">Pronto para iniciar a experiência.</p>
-        <p id="error-details" class="error-details" hidden></p>
-        <button id="start-ar" type="button">Iniciar AR</button>
+        <header class="status-brand">
+          <img
+            class="status-brand__wordmark"
+            src="/brand/bizsys-wordmark-white.png"
+            width="593"
+            height="114"
+            alt="BIZSYS"
+          />
+          <span class="status-brand__session">World Tracking</span>
+        </header>
+
+        <div class="status-copy">
+          <div class="status-copy__state">
+            <span class="status-state-indicator" aria-hidden="true"></span>
+            <div>
+              <p class="status-kicker ds-mark-label">Experiência WebAR</p>
+              <h1 class="status-title status-title--default">BIZSYS no seu espaço.</h1>
+              <h1 class="status-title status-title--error">Não foi possível iniciar.</h1>
+              <p id="status-message">Pronto para iniciar a experiência.</p>
+              <p id="error-details" class="error-details" hidden></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-actions">
+          <button id="start-ar" class="ds-button ds-button--large" type="button">
+            Iniciar experiência
+          </button>
+          <p class="status-privacy">
+            A câmera e os sensores são usados somente durante esta sessão.
+          </p>
+        </div>
       </section>
 
       <button
         id="recenter-ar"
-        class="recenter-button"
+        class="recenter-button ds-icon-button ds-icon-button--outline ds-glass ds-hud-shadow"
         type="button"
         aria-label="Recentrar ambiente"
         title="Recentrar ambiente"
         hidden
       >
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          focusable="false"
-        >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <circle cx="12" cy="12" r="6.5"></circle>
           <circle cx="12" cy="12" r="1.5"></circle>
           <path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
@@ -98,7 +124,12 @@
           00:00 / 00:10
         </p>
         <p id="capture-feedback" class="capture-feedback" aria-live="polite"></p>
-        <button id="capture-retry" class="capture-retry" type="button" hidden>
+        <button
+          id="capture-retry"
+          class="capture-retry ds-button ds-button--outline"
+          type="button"
+          hidden
+        >
           Tentar captura novamente
         </button>
       </section>
@@ -126,11 +157,24 @@
         hidden
       >
         <header>
-          <h2 id="capture-preview-title">Prévia da captura</h2>
-          <p id="capture-preview-status" aria-live="polite"></p>
+          <img
+            class="capture-preview__brand"
+            src="/brand/bizsys-symbol-white.png"
+            width="125"
+            height="125"
+            alt=""
+          />
+          <div class="capture-preview__heading">
+            <h2 id="capture-preview-title">Prévia da captura</h2>
+            <p id="capture-preview-status" aria-live="polite"></p>
+          </div>
         </header>
         <div class="capture-preview-media">
-          <img id="capture-preview-image" alt="Prévia da foto capturada em realidade aumentada" hidden />
+          <img
+            id="capture-preview-image"
+            alt="Prévia da foto capturada em realidade aumentada"
+            hidden
+          />
           <video
             id="capture-preview-video"
             aria-label="Prévia do vídeo capturado em realidade aumentada"
@@ -141,9 +185,21 @@
           ></video>
         </div>
         <div class="capture-preview-actions">
-          <button id="capture-retake" type="button">Refazer</button>
-          <button id="capture-save" type="button">Salvar</button>
-          <button id="capture-share" type="button">Compartilhar</button>
+          <button
+            id="capture-retake"
+            class="ds-button ds-button--outline"
+            type="button"
+          >
+            Refazer
+          </button>
+          <button
+            id="capture-save"
+            class="ds-button ds-button--outline"
+            type="button"
+          >
+            Salvar
+          </button>
+          <button id="capture-share" class="ds-button" type="button">Compartilhar</button>
         </div>
       </section>
 
@@ -157,13 +213,25 @@
         hidden
       >
         <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 5v4h4"></path>
+            <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 19v-4h-4"></path>
+          </svg>
+        </div>
         <h2 id="recenter-confirmation-title">Recentralizar ambiente</h2>
         <p id="recenter-confirmation-message">
           O objeto atual será removido e precisará ser posicionado novamente.
         </p>
         <div class="confirmation-actions">
-          <button id="cancel-recenter" type="button">Cancelar</button>
-          <button id="confirm-recenter" type="button">
+          <button
+            id="cancel-recenter"
+            class="ds-button ds-button--outline"
+            type="button"
+          >
+            Cancelar
+          </button>
+          <button id="confirm-recenter" class="ds-button" type="button">
             Remover e recentralizar
           </button>
         </div>
@@ -180,14 +248,28 @@
         hidden
       >
         <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="7" y="2" width="10" height="20" rx="2"></rect>
+            <path d="M11 18h2M3.5 8.5a9 9 0 0 0 0 7M20.5 8.5a9 9 0 0 1 0 7"></path>
+          </svg>
+        </div>
         <h2 id="motion-permission-title">Permitir sensores de movimento</h2>
         <p id="motion-permission-message">
           A realidade aumentada usa os sensores do dispositivo para manter os
           objetos estáveis enquanto você movimenta o celular.
         </p>
         <div class="confirmation-actions">
-          <button id="cancel-motion-permission" type="button">Cancelar</button>
-          <button id="confirm-motion-permission" type="button">Continuar</button>
+          <button
+            id="cancel-motion-permission"
+            class="ds-button ds-button--outline"
+            type="button"
+          >
+            Agora não
+          </button>
+          <button id="confirm-motion-permission" class="ds-button" type="button">
+            Continuar
+          </button>
         </div>
       </section>
 

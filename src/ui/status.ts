@@ -202,7 +202,9 @@ function render(
   const canStart = snapshot.phase === 'idle' || snapshot.phase === 'error';
   startButton.hidden = !canStart;
   startButton.disabled = !canStart;
-  startButton.textContent = snapshot.phase === 'error' ? 'Tentar novamente' : 'Iniciar AR';
+  startButton.textContent = snapshot.phase === 'error'
+    ? 'Tentar novamente'
+    : 'Iniciar experiência';
 
   const canRecenter = isRecenterPhase(snapshot.phase);
   recenterButton.hidden = !canRecenter || !confirmation.hidden;

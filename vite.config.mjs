@@ -1,4 +1,4 @@
-import {dirname} from 'node:path'
+import {dirname, resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 
 import {defineConfig} from 'vite'
@@ -14,6 +14,10 @@ export default defineConfig({
     // size is stable and no longer inflates the application entry chunk.
     chunkSizeWarningLimit: 775,
     rolldownOptions: {
+      input: {
+        index: resolve(projectRoot, 'index.html'),
+        'design-system': resolve(projectRoot, 'design-system.html'),
+      },
       output: {
         codeSplitting: {
           groups: [

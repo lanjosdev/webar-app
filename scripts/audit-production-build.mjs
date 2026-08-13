@@ -14,6 +14,13 @@ const placementModel = resolve(distRoot, 'models', 'Logo.glb')
 
 const requiredFiles = [
   resolve(distRoot, 'index.html'),
+  resolve(distRoot, 'design-system.html'),
+  resolve(distRoot, 'brand', 'bizsys-favicon.png'),
+  resolve(distRoot, 'brand', 'bizsys-symbol-white.png'),
+  resolve(distRoot, 'brand', 'bizsys-wordmark-black.png'),
+  resolve(distRoot, 'brand', 'bizsys-wordmark-white.png'),
+  resolve(distRoot, 'licenses', 'fonts', 'ibm-plex-mono-OFL.txt'),
+  resolve(distRoot, 'licenses', 'fonts', 'space-grotesk-OFL.txt'),
   resolve(engineRoot, 'LICENSE'),
   resolve(engineRoot, 'xr.js'),
   resolve(engineRoot, 'xr-slam.js'),
@@ -44,6 +51,8 @@ if (sourceMaps.length > 0) {
 
 const indexPath = resolve(distRoot, 'index.html')
 const indexHtml = readFileSync(indexPath, 'utf8')
+const designSystemPath = resolve(distRoot, 'design-system.html')
+const designSystemHtml = readFileSync(designSystemPath, 'utf8')
 const expectedEngineUrl = `/${enginePublicPath}/xr.js`
 
 if (!indexHtml.includes(expectedEngineUrl)) {
@@ -51,6 +60,12 @@ if (!indexHtml.includes(expectedEngineUrl)) {
 }
 if (indexHtml.includes('/src/') || indexHtml.includes('__8THWALL_ENGINE_PATH__')) {
   throw new Error('index.html still contains development or unresolved build paths')
+}
+if (designSystemHtml.includes('/src/')) {
+  throw new Error('design-system.html still contains development source paths')
+}
+if (!designSystemHtml.includes('BIZSYS') || !designSystemHtml.includes('Design System')) {
+  throw new Error('design-system.html is missing its BIZSYS identity')
 }
 if (/diagnostics-[^"']+\.js/.test(indexHtml)) {
   throw new Error('The diagnostics chunk must not be eagerly referenced by index.html')
