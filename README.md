@@ -12,7 +12,7 @@ implementa múltiplos planos, anchors, escala física, gestos ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 51 testes unitários de tracking, modelo 3D, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
+- 53 testes unitários de tracking, modelo 3D, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
 - testes, typecheck e build local: aprovados em 13 de agosto de 2026;
 - smoke tests anteriores em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen e tracking confirmados; validação móvel do GLB pendente;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
@@ -331,6 +331,12 @@ eixo frontal `+Z` recebe apenas o yaw necessário para encarar a câmera; depois
 a transformação permanece fixa no mundo. O retículo desaparece quando o centro
 da câmera não intersecta o plano ou quando o tracking está `LIMITED`. O logo
 colocado permanece visível durante a perda temporária de tracking.
+
+O material PBR do GLB recebe acabamento metálico acetinado (`metalness 0,82`,
+`roughness 0,32`) sem alterar sua cor base. Uma sombra elíptica procedural de
+64 × 64 acompanha o `Group` no chão. Ela usa um único plano transparente de dois
+triângulos, sem shadow map, luz adicional, pós-processamento ou alocação por
+frame.
 
 Essa técnica representa somente o chão horizontal mantido pelo World Tracking;
 ela não é WebXR Hit Test, detecção de múltiplos planos ou criação de anchors.

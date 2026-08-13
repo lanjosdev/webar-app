@@ -34,7 +34,8 @@ Meshopt, KTX2 ou `AnimationMixer`.
 
 Após o parse, um `Group` intermediário:
 
-- preserva os transforms e o material exportados;
+- preserva os transforms, cor base, mapas e demais propriedades exportadas;
+- ajusta materiais PBR compatíveis para `metalness 0,82` e `roughness 0,32`;
 - calcula o `Box3` preciso da hierarquia;
 - aplica escala uniforme para maior dimensão de `0,75` unidade;
 - centraliza o conteúdo em X/Z;
@@ -44,6 +45,26 @@ Após o parse, um `Group` intermediário:
 No encerramento, a hierarquia é percorrida uma única vez e libera geometrias,
 materiais, texturas, `ImageBitmap` e skeletons que pertençam ao asset. O cleanup
 é idempotente e também cobre falhas ocorridas antes de `XR8.run()`.
+
+## Acabamento metálico e sombra
+
+O acabamento é aplicado diretamente aos `MeshStandardMaterial` produzidos pelo
+`GLTFLoader`. A combinação de metalness alta e roughness moderada cria reflexos
+largos, evitando aparência cromada ou highlights excessivamente estreitos. As
+luzes existentes da cena continuam sendo usadas; não há environment map ou
+nova fonte de luz.
+
+A sombra no chão é uma aproximação visual, não uma sombra física. Uma
+`DataTexture` RGBA de 64 × 64 é gerada uma vez durante a preparação do asset com
+falloff radial quadrático. Ela alimenta um `MeshBasicMaterial` preto com
+opacidade `0,24`, aplicado a um `PlaneGeometry` de dois triângulos posicionado
+aproximadamente em `Y = 0,004` no mundo.
+
+O plano é filho do mesmo `Group` do logo, acompanha placement, reposicionamento
+e yaw e é liberado junto com o asset. O custo incremental é uma textura de 16
+KiB em CPU antes do upload, uma geometria mínima e um draw call. Não são usados
+shadow maps, render pass adicional, pós-processamento ou cálculos por frame além
+da renderização normal desse plano.
 
 ## Técnica de placement
 
@@ -94,6 +115,8 @@ ou altera diretamente o viewport. A caixa CSS do canvas permanece em `100% ×
 | Ground level | Consultado em 10/08/2026 | Confirmar chão em `Y = 0` | [World Effects](https://8thwall.org/docs/studio/guides/xr/world) |
 | World Tracking | Consultado em 10/08/2026 | Plano horizontal dinâmico | [World Tracking Issues](https://8thwall.org/docs/troubleshooting/world-tracking-issues) |
 | Three.js | `0.185.1` | Parse do GLB | [GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html) |
+| Three.js | `0.185.1` | Acabamento metálico PBR | [MeshStandardMaterial](https://threejs.org/docs/pages/MeshStandardMaterial.html) |
+| Three.js | `0.185.1` | Máscara procedural da sombra | [DataTexture](https://threejs.org/docs/pages/DataTexture.html) |
 | Three.js | `0.185.1` | Liberação de recursos WebGL | [How to dispose of objects](https://threejs.org/manual/en/how-to-dispose-of-objects.html) |
 | Three.js | `0.185.1` | Raycast e viewport | [Raycaster](https://threejs.org/docs/pages/Raycaster.html), [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html) |
 
@@ -129,20 +152,22 @@ Executar ao menos três vezes em Android/Chrome e iPhone/Safari por HTTPS:
 2. Confirmar que o logo permanece oculto antes do primeiro toque.
 3. Mirar acima do horizonte e confirmar que o retículo não aparece.
 4. Mirar no chão, tocar e verificar maior dimensão consistente, base flutuando e logo em pé.
-5. Verificar que a face está legível e voltada para a câmera no primeiro frame.
-6. Mover o aparelho e confirmar que o logo não acompanha a câmera por frame.
-7. Reposicionar de outro ângulo e confirmar novo yaw sem duplicar a instância.
-8. Forçar `LIMITED`; o retículo deve sumir e o logo deve permanecer imóvel.
-9. Recenter deve remover o logo e exigir novo placement.
-10. Validar pausa/retomada, foto, vídeo e compartilhamento com o GLB visível.
-11. Simular asset indisponível e confirmar `MODEL_LOAD_ERROR` seguido de retry limpo.
-12. Registrar startup, FPS, estabilidade, memória e condições do ambiente.
+5. Confirmar highlights metálicos suaves, sem regiões pretas ou cintilação durante o movimento.
+6. Confirmar sombra discreta sob o logo, sem retângulo visível ao redor do gradiente.
+7. Mover o aparelho e confirmar que o logo não acompanha a câmera por frame.
+8. Reposicionar de outro ângulo e confirmar novo yaw sem duplicar a instância.
+9. Forçar `LIMITED`; o retículo deve sumir e o logo deve permanecer imóvel.
+10. Recenter deve remover o logo e exigir novo placement.
+11. Validar pausa/retomada, foto, vídeo e compartilhamento com o GLB visível.
+12. Simular asset indisponível e confirmar `MODEL_LOAD_ERROR` seguido de retry limpo.
+13. Registrar startup, FPS, estabilidade, memória e condições do ambiente.
 
 ## Limitações
 
 - apenas o plano horizontal virtual `Y = 0`;
 - nenhuma parede, mesa, plane detection, anchor persistente ou WebXR Hit Test;
 - escala XR8 `responsive`, sem garantia de metros físicos;
-- sem animações, gestos de rotação/escala, sombras ou environment map;
+- sem animações, gestos de rotação/escala, environment map ou sombras físicas;
+- a sombra elíptica não reage à direção da luz nem à geometria do ambiente real;
 - somente uma instância do `Logo.glb` por sessão;
 - a validação móvel específica do GLB deve ser registrada após o deploy.

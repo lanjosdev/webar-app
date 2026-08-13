@@ -1,8 +1,10 @@
 import {
   Box3,
   BoxGeometry,
+  DataTexture,
   Group,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Vector3,
 } from 'three';
@@ -11,6 +13,9 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {
   loadPlacementModel,
   PLACEMENT_MODEL_MAX_DIMENSION,
+  PLACEMENT_MODEL_METALNESS,
+  PLACEMENT_MODEL_ROUGHNESS,
+  PLACEMENT_SHADOW_OPACITY,
   preparePlacementModel,
 } from './model';
 
@@ -28,7 +33,11 @@ describe('preparePlacementModel', () => {
     source.add(mesh);
 
     const model = preparePlacementModel(source);
-    const bounds = new Box3().setFromObject(model.root, true);
+    const normalizedContent = model.root.getObjectByName(
+      'placement-model-normalized-content',
+    );
+    expect(normalizedContent).toBeDefined();
+    const bounds = new Box3().setFromObject(normalizedContent!, true);
     const size = bounds.getSize(new Vector3());
     const center = bounds.getCenter(new Vector3());
 
@@ -39,6 +48,47 @@ describe('preparePlacementModel', () => {
     expect(center.x).toBeCloseTo(0);
     expect(center.z).toBeCloseTo(0);
     expect(model.root.visible).toBe(false);
+
+    model.dispose();
+  });
+
+  it('applies a satin metallic finish to compatible GLB materials', () => {
+    const source = new Group();
+    const material = new MeshStandardMaterial({
+      color: 0x4a90e2,
+      metalness: 0,
+      roughness: 1,
+    });
+    const originalColor = material.color.getHex();
+    source.add(new Mesh(new BoxGeometry(1, 1, 1), material));
+
+    const model = preparePlacementModel(source);
+
+    expect(material.color.getHex()).toBe(originalColor);
+    expect(material.metalness).toBe(PLACEMENT_MODEL_METALNESS);
+    expect(material.roughness).toBe(PLACEMENT_MODEL_ROUGHNESS);
+
+    model.dispose();
+  });
+
+  it('adds one lightweight procedural shadow below the floating model', () => {
+    const source = new Group();
+    source.add(new Mesh(new BoxGeometry(1, 1, 0.2), new MeshStandardMaterial()));
+
+    const model = preparePlacementModel(source);
+    const shadow = model.root.getObjectByName('placement-logo-ground-shadow');
+
+    expect(shadow).toBeInstanceOf(Mesh);
+    expect((shadow as Mesh).material).toBeInstanceOf(MeshBasicMaterial);
+    const material = (shadow as Mesh).material as MeshBasicMaterial;
+    expect(material.opacity).toBe(PLACEMENT_SHADOW_OPACITY);
+    expect(material.depthWrite).toBe(false);
+    expect(material.transparent).toBe(true);
+    expect(material.map).toBeInstanceOf(DataTexture);
+    const textureImage = material.map?.image as {height: number; width: number};
+    expect(textureImage.width).toBe(64);
+    expect(textureImage.height).toBe(64);
+    expect(shadow?.position.y).toBeCloseTo(-0.146);
 
     model.dispose();
   });

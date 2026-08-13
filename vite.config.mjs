@@ -12,7 +12,7 @@ export default defineConfig({
   build: {
     // Three.js is intentionally isolated and audited separately. Its minified
     // size is stable and no longer inflates the application entry chunk.
-    chunkSizeWarningLimit: 750,
+    chunkSizeWarningLimit: 775,
     rolldownOptions: {
       output: {
         codeSplitting: {
