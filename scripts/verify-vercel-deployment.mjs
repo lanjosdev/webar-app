@@ -38,6 +38,27 @@ const asset = await request(representativeAsset)
 assertEqual(asset.headers.get('cache-control'), immutableCache, `${representativeAsset} cache`)
 assertCompression(asset, representativeAsset)
 
+const placementModel = await request('/models/Logo.glb', 'GET')
+assertEqual(
+  placementModel.headers.get('cache-control'),
+  revalidatedCache,
+  '/models/Logo.glb cache',
+)
+assertIncludes(
+  placementModel.headers.get('content-type'),
+  'model/gltf-binary',
+  '/models/Logo.glb content type',
+)
+const placementModelBuffer = Buffer.from(await placementModel.arrayBuffer())
+if (
+  placementModelBuffer.length < 12 ||
+  placementModelBuffer.toString('ascii', 0, 4) !== 'glTF' ||
+  placementModelBuffer.readUInt32LE(4) !== 2 ||
+  placementModelBuffer.readUInt32LE(8) !== placementModelBuffer.length
+) {
+  throw new Error('/models/Logo.glb is not a valid glTF 2.0 binary')
+}
+
 const engineResources = [
   ['/external/xr/v1.0.0/xr.js', 'application/javascript', true],
   ['/external/xr/v1.0.0/xr-slam.js', 'application/javascript', true],

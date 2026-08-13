@@ -1,7 +1,11 @@
 import type {TrackingState} from '../tracking/trackingState';
 import type {DiagnosticsSink} from '../../diagnostics/diagnosticsTypes';
 import {createTrackingRecoveryController} from '../tracking/trackingRecovery';
-import {createMinimalScene} from '../three/scene';
+import {
+  PLACEMENT_MODEL_GROUND_OFFSET,
+  type PlacementModel,
+} from '../three/model';
+import {createARScene} from '../three/scene';
 import {
   createGroundPlacementController,
   type GroundPlacementController,
@@ -11,6 +15,7 @@ import type {CameraPipelineModule, XR8} from './engineTypes';
 import {createFullWindowCanvasModule} from './fullWindowCanvas';
 
 export interface PipelineSession {
+  dispose(): void;
   modules: CameraPipelineModule[];
   pause(): void;
   recenter(): boolean;
@@ -22,16 +27,31 @@ export function createPipelineSession(
   xr8: XR8,
   trackingState: TrackingState,
   placementReticle: HTMLElement,
+  placementModel: PlacementModel,
   onFatalError: (error: ARError) => void,
   diagnostics?: DiagnosticsSink,
 ): PipelineSession {
   let disposeScene: (() => void) | undefined;
   let placementController: GroundPlacementController | undefined;
   let fatalErrorReported = false;
+  let disposed = false;
   let interactionLocked = false;
   let paused = false;
   let placementAllowedByTracking = false;
   const trackingRecovery = createTrackingRecoveryController(trackingState);
+
+  const dispose = (): void => {
+    if (disposed) {
+      return;
+    }
+
+    disposed = true;
+    placementController?.dispose();
+    placementController = undefined;
+    disposeScene?.();
+    disposeScene = undefined;
+    placementModel.dispose();
+  };
 
   const syncPlacementInteraction = (): void => {
     placementController?.setEnabled(
@@ -103,19 +123,20 @@ export function createPipelineSession(
     },
 
     onStart: ({canvas}) => {
-      if (fatalErrorReported) {
+      if (fatalErrorReported || disposed) {
         return;
       }
 
       const xrScene = xr8.Threejs.xrScene();
-      const content = createMinimalScene(xrScene);
+      const content = createARScene(xrScene, placementModel);
       placementController = createGroundPlacementController({
         canvas,
+        faceTargetTowardCamera: true,
         onPlaced: () => trackingState.markObjectPlaced(),
         reticleElement: placementReticle,
         scene: xrScene.scene,
         target: content.placementTarget,
-        targetBaseOffset: content.placementTargetBaseOffset,
+        targetGroundOffset: PLACEMENT_MODEL_GROUND_OFFSET,
       });
       disposeScene = () => {
         placementController?.dispose();
@@ -159,10 +180,7 @@ export function createPipelineSession(
 
     onResume: resume,
 
-    onDetach: () => {
-      disposeScene?.();
-      disposeScene = undefined;
-    },
+    onDetach: dispose,
   };
 
   const modules = [
@@ -174,6 +192,7 @@ export function createPipelineSession(
   ];
 
   return {
+    dispose,
     modules,
     pause,
 

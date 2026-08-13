@@ -1,128 +1,148 @@
-# Placement horizontal com 8th Wall e Three.js
+# Placement horizontal do GLB com 8th Wall e Three.js
 
 ## Objetivo
 
-Permitir que o usuário posicione e reposicione um único cubo sobre o chão
-horizontal mantido pelo 8th Wall World Tracking. O cubo começa oculto, o
-retículo central indica uma posição válida e um toque no canvas confirma o
-ponto.
+Permitir que o usuário posicione e reposicione uma única instância de
+`public/models/Logo.glb` no mundo rastreado pelo 8th Wall. O modelo começa
+oculto, flutua acima do plano horizontal virtual e encara a câmera no momento
+de cada placement, sem se transformar em billboard por frame.
 
-## Técnica adotada
+## Carregamento e preparação do modelo
 
-O controller de placement cria:
+O fluxo executado antes de solicitar a câmera é:
+
+```text
+Engine pronto
+    → SLAM pronto
+    → fetch /models/Logo.glb
+    → validar cabeçalho glTF 2.0
+    → GLTFLoader.parseAsync
+    → validar e normalizar bounding box
+    → configurar pipeline
+    → XR8.run
+```
+
+O request possui timeout de 15 segundos com `AbortController`. Respostas HTTP
+inválidas, arquivo malformado, cena vazia ou bounds degenerados geram
+`MODEL_LOAD_ERROR`; a câmera não é aberta e o retry cria uma nova sessão limpa.
+Não existe fallback para o cubo.
+
+O asset foi inspecionado em 13/08/2026: glTF 2.0 gerado pelo Blender, 109 KiB,
+um mesh com 2.122 vértices, um material, sem textura, animação, skin ou extensão
+de compressão. Por isso, a integração usa somente `GLTFLoader`, sem Draco,
+Meshopt, KTX2 ou `AnimationMixer`.
+
+Após o parse, um `Group` intermediário:
+
+- preserva os transforms e o material exportados;
+- calcula o `Box3` preciso da hierarquia;
+- aplica escala uniforme para maior dimensão de `0,75` unidade;
+- centraliza o conteúdo em X/Z;
+- move a base do conteúdo para `Y = 0` local;
+- mantém o `Group` de placement oculto até o primeiro toque.
+
+No encerramento, a hierarquia é percorrida uma única vez e libera geometrias,
+materiais, texturas, `ImageBitmap` e skeletons que pertençam ao asset. O cleanup
+é idempotente e também cobre falhas ocorridas antes de `XR8.run()`.
+
+## Técnica de placement
+
+O controller cria:
 
 - um `THREE.PlaneGeometry` invisível de `100 × 100`, rotacionado sobre `Y = 0`;
-- um `THREE.Raycaster` com origem no centro da câmera, NDC `(0, 0)`;
+- um `THREE.Raycaster` com origem no centro visual da câmera;
 - distância máxima de interseção de 20 unidades da cena;
-- um retículo HTML/CSS turquesa em screen-space, fixado em `50% × 50%` da viewport;
+- um retículo HTML/CSS em screen-space, fixado em `50% × 50%` da viewport;
 - um listener `pointerup` primário para confirmar a posição atual.
 
-O raycast roda somente quando o tracking está `NORMAL`. O retículo fica oculto
-quando não existe interseção ou quando o tracking está `LIMITED`. Um toque válido
-copia `X/Z` da interseção para o cubo e soma metade da altura no eixo `Y`,
-mantendo sua base sobre o chão.
+O raycast roda somente quando o tracking bruto está `NORMAL`. O retículo fica
+oculto quando não há interseção ou quando o tracking está `LIMITED`. Um toque
+válido posiciona a base do modelo em `intersection.y + 0,15`, criando o efeito
+de flutuação.
 
-`Raycaster`, coordenadas, ponto de placement, vetores de projeção e array de
-interseções são reutilizados para evitar alocações Three.js por frame. O listener
-e o plano são removidos, os recursos Three.js são liberados e o retículo é
-ocultado no `dispose()` da sessão.
+No mesmo commit, o vetor horizontal entre o logo e a câmera determina somente
+o yaw do `Group`. O eixo frontal local `+Z` aponta para a câmera, enquanto pitch
+e roll permanecem zerados. Essa orientação é recalculada apenas em um novo
+placement; mover o aparelho não gira o logo e preserva a coerência espacial.
 
-O retículo visual não é um objeto no mundo 3D. Essa separação é intencional: a
-projeção óptica controlada pelo XR8 pode deslocar visualmente uma geometria 3D,
-enquanto o overlay em screen-space garante o centro da interface. Para preservar
-o feedback de perspectiva, dois diâmetros do anel horizontal são projetados pela
-câmera a cada frame; seus eixos determinam a escala e a rotação da elipse da UI.
-A posição do cubo continua sendo calculada pelo raio central contra o chão virtual.
-Antes do raycast, o centro do drawing buffer é convertido para NDC usando o
-viewport real do contexto WebGL (`gl.VIEWPORT`), evitando assumir que `(0, 0)`
-representa o centro visual após o recorte fullscreen. A leitura não depende do
-cache interno de `WebGLRenderer`, pois o Engine Binary também chama
-`gl.viewport()` diretamente.
+`Intersection.point` está em world-space. Antes de gravar `target.position`, a
+posição é convertida com `target.parent.worldToLocal()`. A orientação também é
+convertida da rotação mundial desejada para o espaço local do pai, sem assumir
+que a hierarquia controlada pelo XR8 seja identidade.
 
-O drawing buffer pode ter resolução diferente da viewport, mas sua caixa CSS
-deve ocupar exatamente a área visível. Como o XR8 escreve dimensões inline no
-canvas, `width` e `height` visuais são forçados para `100%` com `!important`; os
-atributos `canvas.width` e `canvas.height` continuam controlando somente a
-resolução interna.
+O `pointerup` apenas registra a intenção. O ponto, a posição e a orientação são
+confirmados no próximo `Scene.onBeforeRender`, usando a mesma pose e projeção que
+renderizam o primeiro frame visível do logo.
 
-O `pointerup` não copia diretamente o último ponto calculado. Ele registra uma
-solicitação, confirmada no próximo `Scene.onBeforeRender` depois de recalcular a
-interseção. A matriz do cubo é atualizada no mesmo callback, garantindo que seu
-primeiro frame use exatamente a pose de câmera que gerou o placement.
+## Retículo e viewport
 
-`Intersection.point` é tratado como world-space. Antes de escrever em
-`target.position`, o centro desejado do cubo é convertido com
-`target.parent.worldToLocal()`, pois `Object3D.position` pertence ao espaço local
-do pai e a hierarquia dirigida pelo XR8 não deve ser presumida como identidade.
+O retículo visual não é um objeto 3D. Dois diâmetros do anel horizontal são
+projetados pela câmera a cada frame; os eixos resultantes determinam escala,
+aspect ratio e rotação da elipse em screen-space.
+
+Antes do raycast, o centro do drawing buffer é convertido para o viewport WebGL
+corrente (`gl.VIEWPORT`). Isso preserva o alinhamento quando o XR8 usa cover crop
+ou altera diretamente o viewport. A caixa CSS do canvas permanece em `100% ×
+100%`, enquanto os atributos internos conservam a resolução do renderer.
 
 ## Fontes e versões
 
 | Item | Versão/data | Uso | Fonte |
 | --- | --- | --- | --- |
 | 8th Wall Engine Binary | `1.0.0` | World Tracking e câmera | [Engine Overview](https://8thwall.org/docs/engine/overview) |
+| XR8 Three.js | Consultado em 13/08/2026 | Cena e câmera integradas | [XR8.Threejs.xrScene](https://8thwall.org/docs/api/engine/threejs/xrscene) |
 | Ground level | Consultado em 10/08/2026 | Confirmar chão em `Y = 0` | [World Effects](https://8thwall.org/docs/studio/guides/xr/world) |
-| World Tracking | Consultado em 10/08/2026 | Confirmar um único plano horizontal dinâmico | [World Tracking Issues](https://8thwall.org/docs/troubleshooting/world-tracking-issues) |
-| Exemplo oficial Three.js | Repositório oficial arquivado em 2026 | Validar raycast contra `PlaneGeometry` | [Tap to Place](https://github.com/8thwall/web/tree/master/examples/threejs/placeground) |
-| Three.js | `0.185.1` | `Raycaster` e plano virtual | [Raycaster](https://threejs.org/docs/pages/Raycaster.html) |
-| WebGL / Three.js | `0.185.1` | Conversão drawing buffer/viewport real | [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html) |
-
-O exemplo `Tap to Place` pertence ao repositório oficial arquivado e não é usado
-como fonte isolada. A técnica foi confrontada com a documentação atual de
-`Y = 0` e com a API atual do Three.js.
+| World Tracking | Consultado em 10/08/2026 | Plano horizontal dinâmico | [World Tracking Issues](https://8thwall.org/docs/troubleshooting/world-tracking-issues) |
+| Three.js | `0.185.1` | Parse do GLB | [GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html) |
+| Three.js | `0.185.1` | Liberação de recursos WebGL | [How to dispose of objects](https://threejs.org/manual/en/how-to-dispose-of-objects.html) |
+| Three.js | `0.185.1` | Raycast e viewport | [Raycaster](https://threejs.org/docs/pages/Raycaster.html), [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html) |
 
 ## Fluxo de estado
 
 ```text
+loading-model
+    → asset validado, normalizado e ainda oculto
+
 tracking INITIALIZING/LIMITED
     → placement desabilitado
     → retículo oculto
 
 tracking NORMAL + interseção central
     → retículo visível
-    → toque posiciona ou reposiciona o cubo
+    → toque posiciona ou reposiciona a mesma instância
     → placement = placed
 
 tracking LIMITED após placement
-    → cubo preservado
+    → logo preservado
     → retículo oculto
     → novos toques ignorados
 ```
 
-Tracking e placement são estados independentes. Reiniciar a sessão volta o
-placement para `not-placed` e recria um único listener.
+Recenter remove o placement atual. Pausa e retomada preservam a instância, mas
+bloqueiam novos placements até o tracking recuperar `NORMAL` de forma estável.
 
 ## Roteiro de validação móvel
 
-Executar três vezes em Android/Chrome e iPhone/Safari:
+Executar ao menos três vezes em Android/Chrome e iPhone/Safari por HTTPS:
 
-1. Iniciar AR e confirmar que o cubo permanece oculto antes do toque.
-2. Mirar acima do horizonte e confirmar que o retículo não aparece.
-3. Mirar no chão e confirmar que o retículo aparece no centro.
-4. Tocar no canvas e confirmar que o cubo aparece no ponto da interseção central.
-5. Mirar em outro ponto e tocar novamente; o mesmo cubo deve mover, sem duplicar.
-6. Forçar tracking `LIMITED`; o retículo deve sumir e o cubo deve permanecer.
-7. Tocar durante `LIMITED`; a posição não deve mudar.
-8. Recuperar `NORMAL`; o retículo deve voltar e o reposicionamento deve funcionar.
-9. Girar retrato/paisagem e confirmar alinhamento do raycast e do canvas.
-10. Recarregar/reiniciar e confirmar ausência de placement e listeners antigos.
-
-## Resultado registrado
-
-Em 10/08/2026, o placement central e o reposicionamento foram confirmados em
-Android e iOS por HTTPS. O alinhamento exigiu separar o drawing buffer da caixa
-CSS do canvas: o XR8 mantinha a resolução interna maior que a viewport e também
-escrevia esse tamanho como estilo inline. A caixa visual passou a ser forçada
-para `100% × 100%`, preservando a resolução interna e alinhando NDC `(0, 0)` ao
-centro da interface.
-
-Modelos, versões dos sistemas/navegadores e contagem das execuções ainda devem
-ser adicionados à matriz estruturada de validação.
+1. Confirmar que “Carregando o modelo 3D…” aparece antes da câmera.
+2. Confirmar que o logo permanece oculto antes do primeiro toque.
+3. Mirar acima do horizonte e confirmar que o retículo não aparece.
+4. Mirar no chão, tocar e verificar maior dimensão consistente, base flutuando e logo em pé.
+5. Verificar que a face está legível e voltada para a câmera no primeiro frame.
+6. Mover o aparelho e confirmar que o logo não acompanha a câmera por frame.
+7. Reposicionar de outro ângulo e confirmar novo yaw sem duplicar a instância.
+8. Forçar `LIMITED`; o retículo deve sumir e o logo deve permanecer imóvel.
+9. Recenter deve remover o logo e exigir novo placement.
+10. Validar pausa/retomada, foto, vídeo e compartilhamento com o GLB visível.
+11. Simular asset indisponível e confirmar `MODEL_LOAD_ERROR` seguido de retry limpo.
+12. Registrar startup, FPS, estabilidade, memória e condições do ambiente.
 
 ## Limitações
 
-- apenas o plano horizontal `Y = 0`;
-- nenhuma parede, mesa ou plano independente;
-- nenhuma persistência ou anchor entre sessões;
-- escala `responsive`, sem garantia de metros reais;
-- recenter remove o placement atual; rotação, escala por gesto, GLB e múltiplos objetos permanecem fora desta fase;
-- o plano invisível é uma superfície virtual para raycasting, não plane detection.
+- apenas o plano horizontal virtual `Y = 0`;
+- nenhuma parede, mesa, plane detection, anchor persistente ou WebXR Hit Test;
+- escala XR8 `responsive`, sem garantia de metros físicos;
+- sem animações, gestos de rotação/escala, sombras ou environment map;
+- somente uma instância do `Logo.glb` por sessão;
+- a validação móvel específica do GLB deve ser registrada após o deploy.

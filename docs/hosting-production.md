@@ -52,11 +52,13 @@ carregamentos dinâmicos do Engine ou da captura.
 | --- | --- |
 | `/` e `/index.html` | `public, max-age=0, must-revalidate` |
 | `/assets/*` | `public, max-age=31536000, immutable` |
+| `/models/*` | `public, max-age=0, must-revalidate` |
 | `/external/xr/v1.0.0/*` | `public, max-age=31536000, immutable` |
 
-O HTML precisa revalidar para descobrir novos hashes. Assets Vite e o diretório
-versionado do Engine podem ser imutáveis. Não aplique cache imutável a um caminho
-do Engine que não contenha a versão.
+O HTML precisa revalidar para descobrir novos hashes. O `Logo.glb` também
+revalida porque seu nome público não contém hash ou versão. Assets Vite e o
+diretório versionado do Engine podem ser imutáveis. Não aplique cache imutável a
+um caminho que possa mudar mantendo a mesma URL.
 
 ## Compressão e MIME
 
@@ -106,6 +108,7 @@ que alterem apenas a aplicação e elimina o aviso de chunk principal acima de
 O audit do build falha quando:
 
 - um arquivo obrigatório do Engine/captura está ausente;
+- `/models/Logo.glb` está ausente ou não possui cabeçalho glTF 2.0 válido;
 - o HTML contém paths de desenvolvimento ou placeholder não resolvido;
 - diagnóstico passa a ser carregado diretamente pelo HTML;
 - source maps públicos aparecem no artefato;
@@ -127,11 +130,12 @@ paths e headers divergirem do contrato. Em seguida, valide no aparelho:
 
 1. `/` revalida e não usa cache imutável.
 2. `/assets/<hash>.js` retorna cache imutável e Brotli/gzip.
-3. `/external/xr/v1.0.0/xr.js`, `xr-slam.js` e
+3. `/models/Logo.glb` retorna `model/gltf-binary`, revalidação e cabeçalho glTF 2.0.
+4. `/external/xr/v1.0.0/xr.js`, `xr-slam.js` e
    `resources/media-worker.js` retornam `200`, MIME correto, compressão e cache
    imutável.
-4. `LICENSE` permanece publicamente acessível no diretório versionado.
-5. Uma segunda navegação apresenta transferências por cache, sem misturar
+5. `LICENSE` permanece publicamente acessível no diretório versionado.
+6. Uma segunda navegação apresenta transferências por cache, sem misturar
    versões.
 6. Câmera, tracking, foto, vídeo e compartilhamento funcionam pela URL HTTPS.
 

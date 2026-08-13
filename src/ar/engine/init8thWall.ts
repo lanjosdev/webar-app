@@ -5,6 +5,7 @@ import type {TrackingState} from '../tracking/trackingState';
 import type {EngineCaptureSession} from '../capture/engineCapture';
 import {CaptureError} from '../capture/captureTypes';
 import type {DiagnosticsSink} from '../../diagnostics/diagnosticsTypes';
+import {loadPlacementModel} from '../three/model';
 import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
 import {createPipelineSession, type PipelineSession} from './pipeline';
@@ -45,6 +46,7 @@ export function stopAR(): void {
   const xr8 = activeXR8;
   const modules = activeModules;
   const captureSession = activeCaptureSession;
+  const session = activeSession;
 
   activeXR8 = undefined;
   activeModules = [];
@@ -58,23 +60,23 @@ export function stopAR(): void {
   startPromise = undefined;
   captureSession?.destroy();
 
-  if (!xr8) {
-    return;
-  }
-
-  try {
-    xr8.stop();
-  } catch (error: unknown) {
-    console.warn('[WebAR] Could not stop the XR8 session cleanly.', error);
-  }
-
-  if (modules.length > 0) {
+  if (xr8) {
     try {
-      xr8.removeCameraPipelineModules(modules);
+      xr8.stop();
     } catch (error: unknown) {
-      console.warn('[WebAR] Could not remove every XR8 pipeline module.', error);
+      console.warn('[WebAR] Could not stop the XR8 session cleanly.', error);
+    }
+
+    if (modules.length > 0) {
+      try {
+        xr8.removeCameraPipelineModules(modules);
+      } catch (error: unknown) {
+        console.warn('[WebAR] Could not remove every XR8 pipeline module.', error);
+      }
     }
   }
+
+  session?.dispose();
 }
 
 /**
@@ -244,38 +246,48 @@ async function bootstrapAR(
     });
   }
 
-  // Official API, consulted 2026-08-07: World Tracking must be configured
-  // before XrController.pipelineModule() and XR8.run().
-  xr8.XrController.configure({
-    disableWorldTracking: false,
-    enableLighting: false,
-    enableWorldPoints: false,
-    scale: 'responsive',
-  });
+  trackingState.setPhase('loading-model');
+  const placementModel = await loadPlacementModel();
+  diagnostics?.mark('model-ready');
 
-  const session = createPipelineSession(
-    xr8,
-    trackingState,
-    placementReticle,
-    activeFatalErrorHandler,
-    diagnostics,
-  );
-  const {modules} = session;
-  xr8.addCameraPipelineModules(modules);
-  activeModules = modules;
-  activeSession = session;
+  try {
+    // Official API, consulted 2026-08-07: World Tracking must be configured
+    // before XrController.pipelineModule() and XR8.run().
+    xr8.XrController.configure({
+      disableWorldTracking: false,
+      enableLighting: false,
+      enableWorldPoints: false,
+      scale: 'responsive',
+    });
 
-  trackingState.setPhase('requesting-camera');
-  xr8.run({
-    allowedDevices,
-    cameraConfig: {direction: xr8.XrConfig.camera().BACK},
-    canvas,
-  });
-  activeRunStarted = true;
-  diagnostics?.mark('xr-run');
+    const session = createPipelineSession(
+      xr8,
+      trackingState,
+      placementReticle,
+      placementModel,
+      activeFatalErrorHandler,
+      diagnostics,
+    );
+    const {modules} = session;
+    activeSession = session;
+    xr8.addCameraPipelineModules(modules);
+    activeModules = modules;
 
-  if (pauseRequested || document.visibilityState === 'hidden') {
-    pauseAR();
+    trackingState.setPhase('requesting-camera');
+    xr8.run({
+      allowedDevices,
+      cameraConfig: {direction: xr8.XrConfig.camera().BACK},
+      canvas,
+    });
+    activeRunStarted = true;
+    diagnostics?.mark('xr-run');
+
+    if (pauseRequested || document.visibilityState === 'hidden') {
+      pauseAR();
+    }
+  } catch (error: unknown) {
+    placementModel.dispose();
+    throw error;
   }
 }
 

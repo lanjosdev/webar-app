@@ -2,6 +2,7 @@ export type DiagnosticMilestone =
   | 'start-intent'
   | 'engine-ready'
   | 'slam-ready'
+  | 'model-ready'
   | 'xr-run'
   | 'camera-video'
   | 'pipeline-start'

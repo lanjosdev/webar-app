@@ -2,18 +2,19 @@
 
 Fundação técnica mínima para validar World Tracking em navegador móvel com Vite, TypeScript, Three.js e o 8th Wall Engine Binary.
 
-O projeto usa um retículo central para posicionar e reposicionar um cubo no plano
-horizontal `Y = 0`, validando câmera, tracking, Three.js e interação básica. Ele
-ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
+O projeto usa um retículo central para posicionar e reposicionar o modelo
+`public/models/Logo.glb` acima do plano horizontal `Y = 0`, validando câmera,
+tracking, Three.js, carregamento de asset e interação básica. Ele ainda não
+implementa múltiplos planos, anchors, escala física, gestos ou React.
 
 ## Status
 
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 42 testes unitários de tracking, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
+- 51 testes unitários de tracking, modelo 3D, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
 - testes, typecheck e build local: aprovados em 13 de agosto de 2026;
-- smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
+- smoke tests anteriores em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen e tracking confirmados; validação móvel do GLB pendente;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
 - erros terminais e pausa/retomada por visibilidade: implementados e confirmados manualmente em Android e iPhone em 11 de agosto de 2026;
@@ -92,6 +93,7 @@ O projeto fixa `@8thwall/engine-binary` em `1.0.0`.
 3. `vite.config.mjs` injeta o mesmo caminho versionado e `index.html` carrega `xr.js` por um `<script async>`.
 4. `src/ar/engine/init8thWall.ts` aguarda o objeto `XR8` por meio de `XR8Promise`.
 5. A aplicação chama `await XR8.loadChunk('slam')` antes de configurar e iniciar o pipeline.
+6. O `Logo.glb` é buscado, validado e normalizado antes de abrir a câmera.
 
 O pacote npm fornece JavaScript, mas não declarações TypeScript. Por isso, `src/ar/engine/engineTypes.ts` contém somente os tipos das APIs efetivamente utilizadas e `src/types/8thwall-engine-binary.d.ts` tipa apenas `XR8Promise`.
 
@@ -107,6 +109,8 @@ pré-requisitos básicos do navegador
 XR8Promise
     ↓
 XR8.loadChunk('slam')
+    ↓
+fetch + GLTFLoader.parseAsync('/models/Logo.glb')
     ↓
 XR8.XrController.configure()
     ↓
@@ -144,6 +148,7 @@ Os estados de alto nível ficam em `src/ar/tracking/trackingState.ts`:
 idle
 loading-engine
 loading-slam
+loading-model
 requesting-motion
 requesting-camera
 tracking-initializing
@@ -201,6 +206,7 @@ Erros conhecidos são normalizados nos códigos:
 
 - `ENGINE_LOAD_ERROR`;
 - `SLAM_LOAD_ERROR`;
+- `MODEL_LOAD_ERROR`;
 - `MOTION_PERMISSION_DENIED`;
 - `CAMERA_PERMISSION_DENIED`;
 - `CAMERA_UNAVAILABLE`;
@@ -223,11 +229,13 @@ src/
 │   │   ├── init8thWall.ts
 │   │   └── pipeline.ts
 │   ├── three/
+│   │   ├── model.ts
 │   │   └── scene.ts
 │   ├── tracking/
 │   │   ├── trackingRecovery.ts
 │   │   └── trackingState.ts
 │   └── world/
+│       ├── coordinates.ts
 │       └── placement.ts
 ├── types/
 │   ├── 8thwall-engine-binary.d.ts
@@ -285,7 +293,8 @@ Teste pelo menos:
 - câmera traseira e permissão;
 - carregamento do SLAM;
 - chegada do tracking ao estado `NORMAL`;
-- estabilidade do cubo com movimento lento;
+- carregamento do `Logo.glb` antes da câmera;
+- estabilidade do logo com movimento lento;
 - recuperação após `LIMITED`;
 - confirmação, cancelamento e conclusão do recenter;
 - pausa e retomada após trocar de aba, minimizar ou bloquear a tela;
@@ -308,17 +317,20 @@ ao mirar para baixo e mais elíptico perto do horizonte, sem perder a centraliza
 O centro visual é convertido do drawing buffer para o viewport WebGL corrente
 antes do raycast, mantendo o ponto 3D alinhado ao overlay mesmo com recorte
 fullscreen. O viewport é consultado no contexto WebGL porque o XR8 também altera
-esse estado diretamente. O primeiro toque mostra o cubo nessa posição e os toques
+esse estado diretamente. O primeiro toque mostra o logo nessa posição e os toques
 seguintes reposicionam a mesma instância. O `pointerup` apenas solicita a ação;
 a posição é confirmada no próximo `Scene.onBeforeRender`, usando a mesma pose de
-câmera que renderiza o primeiro frame visível do cubo. Como a interseção do
-`Raycaster` está em world-space e o cubo pertence a um `Group`, a posição também
+câmera que renderiza o primeiro frame visível do logo. Como a interseção do
+`Raycaster` está em world-space e o logo pertence a um `Group`, a posição também
 é convertida explicitamente para o espaço local do pai antes de atualizar sua
 matriz.
 
-O retículo desaparece quando o centro da câmera não intersecta o plano ou quando
-o tracking está `LIMITED`. O cubo colocado permanece visível durante a perda
-temporária de tracking.
+O modelo é normalizado para maior dimensão de `0,75` unidade, centralizado em
+X/Z e posicionado com a base `0,15` unidade acima do plano. Em cada toque, seu
+eixo frontal `+Z` recebe apenas o yaw necessário para encarar a câmera; depois,
+a transformação permanece fixa no mundo. O retículo desaparece quando o centro
+da câmera não intersecta o plano ou quando o tracking está `LIMITED`. O logo
+colocado permanece visível durante a perda temporária de tracking.
 
 Essa técnica representa somente o chão horizontal mantido pelo World Tracking;
 ela não é WebXR Hit Test, detecção de múltiplos planos ou criação de anchors.
@@ -344,7 +356,7 @@ O botão circular com ícone de recenter fica disponível depois do primeiro tra
 estável. Quando existe um objeto, a aplicação abre uma confirmação em um bottom
 sheet porque
 `XR8.XrController.recenter()` reinicia o tracking e redefine o referencial. Ao
-confirmar, o cubo é removido e um novo placement será necessário. Se o tracking
+confirmar, o logo é removido e um novo placement será necessário. Se o tracking
 não se recuperar em 8 segundos, a aplicação volta ao estado limitado e libera
 outra tentativa.
 
@@ -395,6 +407,7 @@ de distribuição.
 | `XR8.GlTextureRenderer.pipelineModule()` | Desenhar o camera feed | [Engine Overview](https://8thwall.org/docs/engine/overview) |
 | `XR8.Threejs.pipelineModule()` | Integrar Three.js ao pipeline | [XR8.Threejs](https://8thwall.org/docs/api/engine/threejs) |
 | `XR8.Threejs.xrScene()` | Obter cena, câmera e renderer oficiais | [XR8.Threejs.xrScene](https://8thwall.org/docs/api/engine/threejs/xrscene) |
+| `GLTFLoader.parseAsync()` | Processar o `Logo.glb` validado antes da câmera | [GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html) |
 | `XR8.XrController.pipelineModule()` | Processar SLAM e pose da câmera | [XrController.pipelineModule](https://8thwall.org/docs/api/engine/xrcontroller/pipelinemodule) |
 | `XR8.XrDevice.isDeviceBrowserCompatible()` | Rejeitar dispositivos incompatíveis antes de iniciar o pipeline | [isDeviceBrowserCompatible](https://8thwall.org/docs/api/engine/xrdevice/isdevicebrowsercompatible) |
 | `XR8.XrDevice.incompatibleReasons()` | Registrar os motivos técnicos da incompatibilidade | [incompatibleReasons](https://8thwall.org/docs/api/engine/xrdevice/incompatiblereasons) |
@@ -411,7 +424,7 @@ de distribuição.
 | `XR8.MediaRecorder` | Gravar e finalizar vídeo MP4 sem áudio | [MediaRecorder](https://8thwall.org/docs/api/engine/mediarecorder) |
 | `navigator.canShare()` / `navigator.share()` | Compartilhar o arquivo com fallback de download | [Web Share API](https://developer.mozilla.org/docs/Web/API/Web_Share_API) |
 
-Fontes consultadas em **11 de agosto de 2026**.
+Fontes consultadas entre **11 e 13 de agosto de 2026**.
 
 ## Limitações atuais
 
@@ -421,7 +434,8 @@ Fontes consultadas em **11 de agosto de 2026**.
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
 - o placement funciona somente sobre o plano horizontal virtual `Y = 0`;
 - o modo fullscreen recorta as laterais da câmera para preencher a viewport;
-- não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, GLB ou gestos de manipulação;
+- não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, animações ou gestos de manipulação;
+- o `Logo.glb` usa escala normalizada em unidades responsivas da cena, sem equivalência garantida em metros;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - modelos, versões e quantidade de ciclos da validação de pausa/retomada ainda precisam ser registrados;
 - foto, gravação, finalização e compartilhamento ainda precisam ser confirmados em Android/Chrome e iPhone/Safari reais;

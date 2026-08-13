@@ -90,6 +90,7 @@ export interface DiagnosticsReport {
     navigationToEngineMs?: number;
     startToCameraMs?: number;
     startToEngineMs?: number;
+    startToModelMs?: number;
     startToPipelineMs?: number;
     startToSlamMs?: number;
     startToTrackingReadyMs?: number;
@@ -362,6 +363,7 @@ export function createDiagnostics(trackingState: TrackingState): DiagnosticsCont
           milestoneTimes.get('engine-ready'),
         ),
         startToCameraMs: differenceFrom(startTime, milestoneTimes.get('camera-video')),
+        startToModelMs: differenceFrom(startTime, milestoneTimes.get('model-ready')),
         startToPipelineMs: differenceFrom(startTime, milestoneTimes.get('pipeline-start')),
         startToSlamMs: differenceFrom(startTime, milestoneTimes.get('slam-ready')),
         startToTrackingReadyMs: differenceFrom(

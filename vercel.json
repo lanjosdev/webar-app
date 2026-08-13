@@ -58,6 +58,15 @@
       ]
     },
     {
+      "source": "/models/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/external/xr/v1.0.0/(.*)",
       "headers": [
         {

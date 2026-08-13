@@ -4,6 +4,7 @@ const PHASE_MESSAGES: Record<ARPhase, string> = {
   idle: 'Pronto para iniciar a experiência.',
   'loading-engine': 'Carregando o 8th Wall Engine…',
   'loading-slam': 'Preparando o World Tracking…',
+  'loading-model': 'Carregando o modelo 3D…',
   'requesting-motion': 'Autorize o acesso aos sensores de movimento para continuar.',
   'requesting-camera': 'Permita o acesso à câmera para continuar.',
   'tracking-initializing':
@@ -220,7 +221,7 @@ function isRecenterPhase(phase: ARPhase): boolean {
   return phase === 'tracking-ready' || phase === 'tracking-limited';
 }
 
-function getStatusMessage(snapshot: ARSnapshot): string {
+export function getStatusMessage(snapshot: ARSnapshot): string {
   if (snapshot.error) {
     return snapshot.error.message;
   }

@@ -10,6 +10,7 @@ const distRoot = resolve(projectRoot, 'dist')
 const vercelConfigPath = resolve(projectRoot, 'vercel.json')
 const {publicPath: enginePublicPath, version: engineVersion} = getEnginePackageInfo(projectRoot)
 const engineRoot = resolve(distRoot, enginePublicPath)
+const placementModel = resolve(distRoot, 'models', 'Logo.glb')
 
 const requiredFiles = [
   resolve(distRoot, 'index.html'),
@@ -17,11 +18,22 @@ const requiredFiles = [
   resolve(engineRoot, 'xr.js'),
   resolve(engineRoot, 'xr-slam.js'),
   resolve(engineRoot, 'resources/media-worker.js'),
+  placementModel,
 ]
 const missingFiles = requiredFiles.filter((filePath) => !existsSync(filePath))
 
 if (missingFiles.length > 0) {
   throw new Error(`Production build is missing required files:\n${missingFiles.join('\n')}`)
+}
+
+const placementModelBuffer = readFileSync(placementModel)
+if (
+  placementModelBuffer.length < 12 ||
+  placementModelBuffer.toString('ascii', 0, 4) !== 'glTF' ||
+  placementModelBuffer.readUInt32LE(4) !== 2 ||
+  placementModelBuffer.readUInt32LE(8) !== placementModelBuffer.length
+) {
+  throw new Error('Production placement model is not a valid glTF 2.0 binary')
 }
 
 const files = listFiles(distRoot)
@@ -76,6 +88,7 @@ console.log('Production build audit passed')
 console.log(`- Engine path: /${enginePublicPath} (version ${engineVersion})`)
 console.log(`- Application assets: ${formatBytes(appBytes)} raw / ${formatBytes(appGzipBytes)} gzip / ${formatBytes(appBrotliBytes)} Brotli`)
 console.log(`- Application entry: ${formatBytes(statSync(entryScript).size)} raw / ${formatBytes(entryGzipBytes)} gzip`)
+console.log(`- Placement model: /models/Logo.glb (${formatBytes(placementModelBuffer.length)})`)
 console.log(`- Engine package on disk: ${formatBytes(engineBytes)}`)
 console.log(`- Engine + SLAM transfer estimate: ${formatBytes(coreEngineRawBytes)} raw / ${formatBytes(coreEngineGzipBytes)} gzip / ${formatBytes(coreEngineBrotliBytes)} Brotli`)
 console.log(`- Capture worker transfer estimate: ${formatBytes(statSync(captureWorker).size)} raw / ${formatBytes(gzipSize(captureWorker))} gzip / ${formatBytes(brotliSize(captureWorker))} Brotli`)
@@ -131,10 +144,12 @@ function verifyVercelConfig() {
     (rule) => rule.source === `/${enginePublicPath}/(.*)`,
   )
   const assetRule = headerRules.find((rule) => rule.source === '/assets/(.*)')
+  const modelRule = headerRules.find((rule) => rule.source === '/models/(.*)')
   const globalRule = headerRules.find((rule) => rule.source === '/(.*)')
 
   assertHeader(engineRule, 'Cache-Control', 'public, max-age=31536000, immutable')
   assertHeader(assetRule, 'Cache-Control', 'public, max-age=31536000, immutable')
+  assertHeader(modelRule, 'Cache-Control', 'public, max-age=0, must-revalidate')
   assertHeader(globalRule, 'Content-Security-Policy-Report-Only')
   assertHeader(globalRule, 'Permissions-Policy')
   assertHeader(globalRule, 'X-Content-Type-Options', 'nosniff')

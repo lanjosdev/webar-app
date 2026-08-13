@@ -14,6 +14,8 @@ import {
   type WebGLRenderer,
 } from 'three';
 
+import {applyGroundPlacementTransform} from './coordinates';
+
 const GROUND_SIZE = 100;
 const MAX_PLACEMENT_DISTANCE = 20;
 const RETICLE_WORLD_RADIUS = 0.12;
@@ -31,11 +33,12 @@ export interface GroundPlacementController {
 
 interface GroundPlacementOptions {
   canvas: HTMLCanvasElement;
+  faceTargetTowardCamera: boolean;
   onPlaced(): void;
   reticleElement: HTMLElement;
   scene: Scene;
   target: Object3D;
-  targetBaseOffset: number;
+  targetGroundOffset: number;
 }
 
 /**
@@ -49,11 +52,12 @@ interface GroundPlacementOptions {
  */
 export function createGroundPlacementController({
   canvas,
+  faceTargetTowardCamera,
   onPlaced,
   reticleElement,
   scene,
   target,
-  targetBaseOffset,
+  targetGroundOffset,
 }: GroundPlacementOptions): GroundPlacementController {
   const groundGeometry = new PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
   const groundMaterial = new MeshBasicMaterial({
@@ -73,7 +77,6 @@ export function createGroundPlacementController({
   const center = new Vector2(0, 0);
   const intersections: Intersection[] = [];
   const placementPoint = new Vector3();
-  const targetWorldPosition = new Vector3();
   const projectedXNegative = new Vector3();
   const projectedXPositive = new Vector3();
   const projectedZNegative = new Vector3();
@@ -278,25 +281,18 @@ export function createGroundPlacementController({
 
     if (placementRequested) {
       placementRequested = false;
-      targetWorldPosition.copy(placementPoint);
-      targetWorldPosition.y += targetBaseOffset;
-
-      if (target.parent) {
-        // Intersection.point is world-space, while Object3D.position is local
-        // to its parent. XR8 owns the scene hierarchy, so do not assume that
-        // the scene/content matrices remain identity transforms.
-        target.parent.updateWorldMatrix(true, false);
-        target.position.copy(targetWorldPosition);
-        target.parent.worldToLocal(target.position);
-      } else {
-        target.position.copy(targetWorldPosition);
-      }
+      applyGroundPlacementTransform({
+        camera: renderCamera,
+        faceCameraYaw: faceTargetTowardCamera,
+        groundOffset: targetGroundOffset,
+        target,
+        worldPoint: placementPoint,
+      });
       target.visible = true;
 
       // WebGLRenderer updated the scene graph before Scene.onBeforeRender.
       // Commit this late transform so the first visible frame uses the exact
       // camera pose and intersection that produced the placement point.
-      target.updateMatrixWorld(true);
       onPlaced();
     }
   };
