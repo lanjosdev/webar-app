@@ -66,6 +66,32 @@ KiB em CPU antes do upload, uma geometria mínima e um draw call. Não são usad
 shadow maps, render pass adicional, pós-processamento ou cálculos por frame além
 da renderização normal desse plano.
 
+## Rotação automática
+
+Após um placement válido, o grupo `placement-model-normalized-content` executa
+uma rotação horária uniforme no eixo Y, completando uma volta em 15 segundos.
+O `placementRoot` permanece ancorado e orientado pelo toque, enquanto a sombra é
+irmã do grupo animado e não gira a cada frame.
+
+A atualização é encadeada em `Scene.onBeforeRender`, dentro do loop que o XR8 já
+mantém. Não existe um segundo `requestAnimationFrame` nem `AnimationMixer`. O
+ângulo é calculado por delta de tempo e o delta máximo é limitado a 100 ms para
+evitar saltos visíveis após um frame travado.
+
+A rotação:
+
+- começa somente depois do primeiro placement;
+- volta ao ângulo frontal e reinicia em cada reposicionamento;
+- pausa imediatamente em tracking inseguro, recenter e lifecycle pausado;
+- retoma sem acumular o tempo da pausa;
+- continua aparecendo normalmente em fotos e vídeos;
+- permanece desabilitada enquanto `prefers-reduced-motion: reduce` estiver ativo,
+  inclusive quando essa preferência muda durante a sessão.
+
+O custo por frame é uma soma angular, uma atualização de matriz do grupo e
+nenhuma alocação. Não há geometria, textura, draw call ou passe de renderização
+adicional por causa da rotação.
+
 ## Técnica de placement
 
 O controller cria:
@@ -117,6 +143,7 @@ ou altera diretamente o viewport. A caixa CSS do canvas permanece em `100% ×
 | Three.js | `0.185.1` | Parse do GLB | [GLTFLoader](https://threejs.org/docs/pages/GLTFLoader.html) |
 | Three.js | `0.185.1` | Acabamento metálico PBR | [MeshStandardMaterial](https://threejs.org/docs/pages/MeshStandardMaterial.html) |
 | Three.js | `0.185.1` | Máscara procedural da sombra | [DataTexture](https://threejs.org/docs/pages/DataTexture.html) |
+| Three.js | `0.185.1` | Rotação local no eixo Y | [Object3D](https://threejs.org/docs/pages/Object3D.html) |
 | Three.js | `0.185.1` | Liberação de recursos WebGL | [How to dispose of objects](https://threejs.org/manual/en/how-to-dispose-of-objects.html) |
 | Three.js | `0.185.1` | Raycast e viewport | [Raycaster](https://threejs.org/docs/pages/Raycaster.html), [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html) |
 
@@ -154,20 +181,22 @@ Executar ao menos três vezes em Android/Chrome e iPhone/Safari por HTTPS:
 4. Mirar no chão, tocar e verificar maior dimensão consistente, base flutuando e logo em pé.
 5. Confirmar highlights metálicos suaves, sem regiões pretas ou cintilação durante o movimento.
 6. Confirmar sombra discreta sob o logo, sem retângulo visível ao redor do gradiente.
-7. Mover o aparelho e confirmar que o logo não acompanha a câmera por frame.
-8. Reposicionar de outro ângulo e confirmar novo yaw sem duplicar a instância.
-9. Forçar `LIMITED`; o retículo deve sumir e o logo deve permanecer imóvel.
-10. Recenter deve remover o logo e exigir novo placement.
-11. Validar pausa/retomada, foto, vídeo e compartilhamento com o GLB visível.
-12. Simular asset indisponível e confirmar `MODEL_LOAD_ERROR` seguido de retry limpo.
-13. Registrar startup, FPS, estabilidade, memória e condições do ambiente.
+7. Cronometrar aproximadamente 15 segundos por volta, sem variação perceptível por FPS.
+8. Mover o aparelho e confirmar que o anchor não acompanha a câmera, embora o logo gire internamente.
+9. Reposicionar e confirmar que a face volta para a câmera antes de reiniciar a rotação.
+10. Forçar `LIMITED`; o retículo deve sumir e a rotação deve pausar sem salto ao retomar.
+11. Recenter deve remover o logo e exigir novo placement.
+12. Validar pausa/retomada e `prefers-reduced-motion: reduce`.
+13. Validar foto, vídeo e compartilhamento com o GLB girando.
+14. Simular asset indisponível e confirmar `MODEL_LOAD_ERROR` seguido de retry limpo.
+15. Registrar startup, FPS, estabilidade, memória e condições do ambiente.
 
 ## Limitações
 
 - apenas o plano horizontal virtual `Y = 0`;
 - nenhuma parede, mesa, plane detection, anchor persistente ou WebXR Hit Test;
 - escala XR8 `responsive`, sem garantia de metros físicos;
-- sem animações, gestos de rotação/escala, environment map ou sombras físicas;
+- sem clips de animação do GLB, gestos de rotação/escala, environment map ou sombras físicas;
 - a sombra elíptica não reage à direção da luz nem à geometria do ambiente real;
 - somente uma instância do `Logo.glb` por sessão;
 - a validação móvel específica do GLB deve ser registrada após o deploy.

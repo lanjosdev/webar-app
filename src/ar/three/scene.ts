@@ -27,6 +27,13 @@ export function createARScene(
   content.add(placementModel.root, hemisphereLight, keyLight);
   scene.add(content);
 
+  const previousOnBeforeRender = scene.onBeforeRender;
+  const handleBeforeRender: typeof scene.onBeforeRender = (...args) => {
+    previousOnBeforeRender.call(scene, ...args);
+    placementModel.rotation.update();
+  };
+  scene.onBeforeRender = handleBeforeRender;
+
   // World Tracking estimates one horizontal ground plane at Y = 0. The
   // placement controller offsets the normalized model above that virtual
   // plane; this is not multi-plane surface detection.
@@ -41,6 +48,9 @@ export function createARScene(
       }
 
       disposed = true;
+      if (scene.onBeforeRender === handleBeforeRender) {
+        scene.onBeforeRender = previousOnBeforeRender;
+      }
       scene.remove(content);
       placementModel.dispose();
     },

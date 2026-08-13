@@ -12,7 +12,7 @@ implementa múltiplos planos, anchors, escala física, gestos ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 53 testes unitários de tracking, modelo 3D, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
+- 58 testes unitários de tracking, modelo 3D, animação, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
 - testes, typecheck e build local: aprovados em 13 de agosto de 2026;
 - smoke tests anteriores em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen e tracking confirmados; validação móvel do GLB pendente;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
@@ -229,6 +229,7 @@ src/
 │   │   ├── init8thWall.ts
 │   │   └── pipeline.ts
 │   ├── three/
+│   │   ├── autoRotation.ts
 │   │   ├── model.ts
 │   │   └── scene.ts
 │   ├── tracking/
@@ -338,6 +339,12 @@ O material PBR do GLB recebe acabamento metálico acetinado (`metalness 0,82`,
 triângulos, sem shadow map, luz adicional, pós-processamento ou alocação por
 frame.
 
+Depois do primeiro placement, somente o grupo interno do logo gira suavemente
+no eixo Y, completando uma volta em 15 segundos. O anchor, o `placementRoot` e a
+sombra permanecem imóveis. A animação usa delta de tempo no `Scene.onBeforeRender`
+já conduzido pelo XR8, reinicia ao reposicionar e pausa durante tracking inseguro,
+recenter, lifecycle pausado ou `prefers-reduced-motion: reduce`.
+
 Essa técnica representa somente o chão horizontal mantido pelo World Tracking;
 ela não é WebXR Hit Test, detecção de múltiplos planos ou criação de anchors.
 Detalhes, fontes e roteiro de testes estão em
@@ -440,7 +447,7 @@ Fontes consultadas entre **11 e 13 de agosto de 2026**.
 - o bundle JavaScript inclui o namespace completo do Three.js e gera um aviso de chunk acima de 500 kB no Vite; otimizar somente depois de validar o pipeline AR;
 - o placement funciona somente sobre o plano horizontal virtual `Y = 0`;
 - o modo fullscreen recorta as laterais da câmera para preencher a viewport;
-- não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, animações ou gestos de manipulação;
+- não há múltiplos planos, anchors, WebXR Hit Test, escala absoluta, clips de animação do GLB ou gestos de manipulação;
 - o `Logo.glb` usa escala normalizada em unidades responsivas da cena, sem equivalência garantida em metros;
 - a diferenciação entre câmera negada e indisponível depende dos detalhes fornecidos pelo navegador/Engine;
 - modelos, versões e quantidade de ciclos da validação de pausa/retomada ainda precisam ser registrados;

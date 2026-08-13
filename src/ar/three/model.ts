@@ -15,6 +15,10 @@ import {
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 import {ARError} from '../engine/arError';
+import {
+  createAutoRotationController,
+  type AutoRotationController,
+} from './autoRotation';
 
 export const PLACEMENT_MODEL_URL = '/models/Logo.glb';
 export const PLACEMENT_MODEL_MAX_DIMENSION = 0.75;
@@ -36,6 +40,7 @@ interface ParsedGLTF {
 export interface PlacementModel {
   dispose(): void;
   root: Group;
+  rotation: AutoRotationController;
 }
 
 interface LoadPlacementModelOptions {
@@ -141,15 +146,18 @@ export function preparePlacementModel(
       normalizedContent,
       createGroundShadow(normalizedSize, targetMaxDimension),
     );
+    const rotation = createAutoRotationController(normalizedContent);
 
     return {
       root: placementRoot,
+      rotation,
       dispose(): void {
         if (disposed) {
           return;
         }
 
         disposed = true;
+        rotation.dispose();
         disposeObject3D(placementRoot);
         placementRoot.removeFromParent();
         placementRoot.clear();

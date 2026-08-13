@@ -57,6 +57,9 @@ export function createPipelineSession(
     placementController?.setEnabled(
       placementAllowedByTracking && !interactionLocked && !fatalErrorReported && !paused,
     );
+    placementModel.rotation.setEnabled(
+      placementAllowedByTracking && !fatalErrorReported && !paused,
+    );
   };
 
   const reportFatalError = (error: ARError): void => {
@@ -132,7 +135,10 @@ export function createPipelineSession(
       placementController = createGroundPlacementController({
         canvas,
         faceTargetTowardCamera: true,
-        onPlaced: () => trackingState.markObjectPlaced(),
+        onPlaced: () => {
+          placementModel.rotation.onPlaced();
+          trackingState.markObjectPlaced();
+        },
         reticleElement: placementReticle,
         scene: xrScene.scene,
         target: content.placementTarget,
@@ -227,6 +233,7 @@ export function createPipelineSession(
       }
 
       controller.reset();
+      placementModel.rotation.reset();
       trackingRecovery.beginRecentering();
       return true;
     },
