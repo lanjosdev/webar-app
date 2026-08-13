@@ -25,6 +25,8 @@ iPhone. Nenhum relatório é enviado automaticamente.
   finaliza o MP4.
 - Se o usuário descartar essa prévia, a finalização continua em segundo plano:
   Foto permanece disponível e Vídeo é reabilitado somente após `onVideoReady`.
+- O tempo de finalização usa o intervalo entre `onStop` e `onVideoReady`, isolado
+  do lifecycle de fotos e prévias abertas enquanto o MP4 é processado.
 - Fonte oficial, consultada em 11/08/2026:
   <https://8thwall.org/docs/api/engine/mediarecorder>.
 

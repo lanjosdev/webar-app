@@ -1,4 +1,5 @@
 import type {EngineCaptureSession} from '../ar/capture/engineCapture';
+import {calculateFinalizationDuration} from '../ar/capture/captureTiming';
 import {
   createCaptureAsset,
   disposeCaptureAsset,
@@ -220,6 +221,7 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
     const operationId = ++captureOperationId;
     activeVideoOperationId = operationId;
     discardVideoAfterFinalization = false;
+    let finalizationStartedAt: number | undefined;
 
     const isActiveVideoOperation = (): boolean =>
       !destroyed && operationId === activeVideoOperationId;
@@ -291,6 +293,7 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
           }
           videoFinalizationPending = true;
           recordingDurationMs = getRecordingElapsed();
+          finalizationStartedAt = performance.now();
           stopRecordingClock();
           captureState.setFinalizing();
           options.diagnostics?.recordCapture('video-stop', {
@@ -303,12 +306,14 @@ export function createCaptureUI(options: CaptureUIOptions): CaptureUI {
             return;
           }
 
+          const mediaReadyAt = performance.now();
           options.diagnostics?.recordCapture('video-ready', {
             bytes: videoBlob.size,
             durationMs: recordingDurationMs,
-            finalizationMs: recordingStartedAt === undefined
-              ? undefined
-              : performance.now() - recordingStartedAt - recordingDurationMs,
+            finalizationMs: calculateFinalizationDuration(
+              finalizationStartedAt,
+              mediaReadyAt,
+            ),
           });
           const shouldDiscard = discardVideoAfterFinalization;
           clearVideoFinalization();

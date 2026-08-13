@@ -11,8 +11,8 @@ ainda não implementa múltiplos planos, anchors, escala física, GLB ou React.
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 39 testes unitários de tracking, recovery, captura e métricas: aprovados em 12 de agosto de 2026;
-- testes, typecheck e build local: aprovados em 12 de agosto de 2026;
+- 42 testes unitários de tracking, recovery, captura e métricas: aprovados em 13 de agosto de 2026;
+- testes, typecheck e build local: aprovados em 13 de agosto de 2026;
 - smoke tests em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen, tracking e cubo confirmados;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
