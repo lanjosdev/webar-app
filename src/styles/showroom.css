@@ -191,9 +191,23 @@
   -webkit-backdrop-filter: blur(16px) saturate(0%);
 }
 
-.showroom-hint span {
+.showroom-hint__icon {
   color: var(--foreground);
   font-size: 1rem;
+}
+
+.showroom-hint__mouse {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .showroom-hint__touch {
+    display: none;
+  }
+
+  .showroom-hint__mouse {
+    display: inline;
+  }
 }
 
 .showroom-copy {
