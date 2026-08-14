@@ -22,6 +22,10 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
+              name: 'three-controls',
+              test: /node_modules[\\/]three[\\/]examples[\\/]jsm[\\/]controls[\\/]/,
+            },
+            {
               name: 'three',
               test: /node_modules[\\/]three[\\/]/,
             },

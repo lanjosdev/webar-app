@@ -20,6 +20,18 @@ const catalogCss = readFileSync(
 
 const REQUIRED_APP_IDS = [
   'app',
+  'showroom-screen',
+  'showroom-canvas',
+  'showroom-loading',
+  'showroom-error',
+  'showroom-error-message',
+  'showroom-retry',
+  'showroom-reset',
+  'showroom-hint',
+  'showroom-title',
+  'enter-ar',
+  'ar-availability-message',
+  'showroom-entry-error',
   'camera-feed',
   'placement-reticle',
   'interaction-blocker',

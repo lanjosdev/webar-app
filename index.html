@@ -9,18 +9,171 @@
     <meta name="theme-color" content="#202020" />
     <meta
       name="description"
-      content="Experiência WebAR BIZSYS com World Tracking"
+      content="Prévia 3D interativa e experiência WebAR BIZSYS com World Tracking"
     />
-    <title>BIZSYS · Experiência WebAR</title>
+    <title>BIZSYS · Experiência 3D e WebAR</title>
     <link rel="icon" type="image/png" href="/brand/bizsys-favicon.png" />
     <link rel="stylesheet" href="/src/styles/global.css" />
     <script src="%BASE_URL%__8THWALL_ENGINE_PATH__/xr.js" async></script>
   </head>
   <body>
-    <main id="app" data-capture-busy="false" data-capture-phase="unavailable">
+    <main
+      id="app"
+      data-capture-busy="false"
+      data-capture-phase="unavailable"
+      data-experience-mode="showroom"
+    >
+      <section
+        id="showroom-screen"
+        class="showroom-screen"
+        data-preview-phase="loading"
+        data-busy="false"
+        aria-labelledby="showroom-title"
+      >
+        <header class="showroom-header">
+          <img
+            class="showroom-header__wordmark"
+            src="/brand/bizsys-wordmark-white.png"
+            width="593"
+            height="114"
+            alt="BIZSYS"
+          />
+          <span class="showroom-badge ds-badge">
+            <span class="ds-status-dot" aria-hidden="true"></span>
+            Experiência WebAR
+          </span>
+        </header>
+
+        <div class="showroom-stage" aria-label="Prévia interativa do modelo 3D">
+          <p class="showroom-stage-label ds-mark-label">Prévia 3D interativa</p>
+          <canvas
+            id="showroom-canvas"
+            aria-label="Modelo BIZSYS em um showroom 3D interativo"
+            aria-busy="true"
+          ></canvas>
+
+          <div id="showroom-loading" class="showroom-stage-message" role="status">
+            <span class="ds-spinner" aria-hidden="true"></span>
+            <p>Preparando o showroom 3D…</p>
+          </div>
+
+          <div
+            id="showroom-error"
+            class="showroom-stage-message"
+            role="alert"
+            hidden
+          >
+            <div class="showroom-error-icon" aria-hidden="true">3D</div>
+            <p id="showroom-error-message"></p>
+            <button
+              id="showroom-retry"
+              class="ds-button ds-button--outline"
+              type="button"
+            >
+              Tentar carregar novamente
+            </button>
+          </div>
+
+          <button
+            id="showroom-reset"
+            class="showroom-reset ds-icon-button ds-icon-button--outline ds-glass ds-hud-shadow"
+            type="button"
+            aria-label="Redefinir visualização do modelo"
+            title="Redefinir visualização"
+            hidden
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M20 11a8 8 0 1 0-2.35 5.65"></path>
+              <path d="M20 5v6h-6"></path>
+            </svg>
+          </button>
+
+          <p id="showroom-hint" class="showroom-hint" hidden>
+            <span aria-hidden="true">↔</span>
+            Arraste para girar · Pinça para aproximar
+          </p>
+        </div>
+
+        <div class="showroom-copy">
+          <h1 id="showroom-title">Sua marca ocupa novos espaços.</h1>
+          <p class="showroom-description">
+            Visualize produtos e modelos 3D no ambiente ao seu redor direto pelo navegador.
+          </p>
+
+          <div class="showroom-actions">
+            <button
+              id="enter-ar"
+              class="ds-button ds-button--large"
+              type="button"
+              disabled
+            >
+              Ver na experiência webAR
+            </button>
+            <p
+              id="ar-availability-message"
+              class="showroom-availability"
+              role="status"
+            >
+              Verificando compatibilidade com realidade aumentada…
+            </p>
+            <p
+              id="showroom-entry-error"
+              class="showroom-entry-error"
+              role="alert"
+              hidden
+            ></p>
+            <section
+              id="desktop-handoff"
+              class="desktop-handoff"
+              aria-labelledby="desktop-handoff-title"
+              hidden
+            >
+              <div class="desktop-handoff__qr-frame">
+                <canvas
+                  id="desktop-handoff-qr"
+                  class="desktop-handoff__qr"
+                  width="140"
+                  height="140"
+                  aria-hidden="true"
+                ></canvas>
+                <p id="desktop-handoff-qr-error" class="desktop-handoff__qr-error" hidden>
+                  QR indisponível
+                </p>
+              </div>
+              <div class="desktop-handoff__content">
+                <p id="desktop-handoff-title" class="desktop-handoff__title">
+                  Continue no celular
+                </p>
+                <p class="desktop-handoff__description">
+                  Escaneie com a câmera do celular para abrir a experiência WebAR.
+                </p>
+                <button
+                  id="desktop-handoff-copy"
+                  class="desktop-handoff__copy ds-button ds-button--outline"
+                  type="button"
+                >
+                  Copiar link
+                </button>
+                <p
+                  id="desktop-handoff-copy-status"
+                  class="desktop-handoff__status"
+                  role="status"
+                  aria-live="polite"
+                ></p>
+              </div>
+            </section>
+            <p class="showroom-privacy">
+              A câmera e os sensores serão solicitados somente na próxima etapa.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <canvas
         id="camera-feed"
         aria-label="Visualização da câmera com conteúdo em realidade aumentada"
+        aria-hidden="true"
+        hidden
       ></canvas>
 
       <div
@@ -52,6 +205,8 @@
         data-phase="idle"
         data-placement="not-placed"
         aria-live="polite"
+        aria-hidden="true"
+        hidden
       >
         <header class="status-brand">
           <img

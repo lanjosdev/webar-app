@@ -1,19 +1,22 @@
 # WebAR World Tracking POC
 
-Fundação técnica mínima para validar World Tracking em navegador móvel com Vite, TypeScript, Three.js e o 8th Wall Engine Binary.
+Experiência BIZSYS com showroom 3D interativo e World Tracking em navegador móvel, construída com Vite, TypeScript, Three.js e o 8th Wall Engine Binary.
 
-O projeto usa um retículo central para posicionar e reposicionar o modelo
-`public/models/Logo.glb` acima do plano horizontal `Y = 0`, validando câmera,
-tracking, Three.js, carregamento de asset e interação básica. Ele ainda não
-implementa múltiplos planos, anchors, escala física, gestos ou React.
+Na entrada, o projeto apresenta `public/models/Logo.glb` em um showroom 3D
+independente da câmera. Em um celular compatível, o CTA encerra esse renderer e
+inicia a sessão WebAR, que usa um retículo central para posicionar e
+reposicionar uma nova instância do modelo acima do plano horizontal `Y = 0`.
+Ele ainda não implementa múltiplos planos, anchors, escala física, customização
+de material ou React.
 
 ## Status
 
 - bootstrap Vite + TypeScript: implementado;
 - Engine Binary e chunk SLAM: configurados;
 - pipeline oficial Three.js + World Tracking: implementado;
-- 61 testes de tracking, modelo 3D, animação, recovery, captura, métricas e contrato de UI: aprovados em 13 de agosto de 2026;
-- testes, typecheck e build local: aprovados em 13 de agosto de 2026;
+- 72 testes de showroom, orquestração, tracking, modelo 3D, animação, recovery, captura, métricas e contrato de UI: aprovados em 14 de agosto de 2026;
+- testes, typecheck e build local: aprovados em 14 de agosto de 2026;
+- showroom 3D validado localmente com mouse em 390 × 667, 390 × 844, 844 × 390 e 1440 × 900; validação touch em aparelhos reais pendente;
 - smoke tests anteriores em Android/Chrome e iPhone/Safari: câmera, canvas fullscreen e tracking confirmados; validação móvel do GLB pendente;
 - placement central e reposicionamento: confirmados em Android e iOS em 10 de agosto de 2026;
 - recuperação estabilizada e recenter manual: confirmados em Android e iOS em 10 de agosto de 2026;
@@ -88,10 +91,11 @@ Durante o desenvolvimento, `npm test` mantém o Vitest em modo de observação.
 `npm run build` já executa a verificação de licença e a auditoria do artefato;
 `npm run audit:build` permite repetir apenas a auditoria sobre o `dist/` atual.
 
-No desktop, valide somente:
+No desktop, valide:
 
 - carregamento da página;
-- layout e mensagens de estado;
+- layout, rotação por mouse, zoom por wheel e reset da prévia 3D;
+- painel com QR Code e ação para copiar o link e continuar em um celular compatível;
 - testes unitários, typecheck e build;
 - presença dos artefatos do Engine em `dist/external/xr/v1.0.0`;
 - ausência de imports e paths quebrados.
@@ -105,9 +109,11 @@ O projeto fixa `@8thwall/engine-binary` em `1.0.0`.
 1. `scripts/copy-8thwall-engine.mjs` lê a versão instalada e copia o conteúdo de `node_modules/@8thwall/engine-binary/dist` para `public/external/xr/v<versão>`.
 2. O Vite copia essa pasta pública para `dist/external/xr/v<versão>` durante o build.
 3. `vite.config.mjs` injeta o mesmo caminho versionado e `index.html` carrega `xr.js` por um `<script async>`.
-4. `src/ar/engine/init8thWall.ts` aguarda o objeto `XR8` por meio de `XR8Promise`.
-5. A aplicação chama `await XR8.loadChunk('slam')` antes de configurar e iniciar o pipeline.
-6. O `Logo.glb` é buscado, validado e normalizado antes de abrir a câmera.
+4. A home usa `XR8Promise` apenas para verificar compatibilidade, sem abrir a câmera.
+5. O showroom carrega e normaliza uma instância própria do `Logo.glb`.
+6. Depois do CTA, o runtime AR é preparado sem abrir a câmera e o renderer da prévia é descartado antes do início da sessão.
+7. `src/ar/engine/init8thWall.ts` chama `await XR8.loadChunk('slam')` antes de configurar o pipeline.
+8. Uma segunda instância independente do `Logo.glb` é criada a partir do cache HTTP antes de abrir a câmera.
 
 O pacote npm fornece JavaScript, mas não declarações TypeScript. Por isso, `src/ar/engine/engineTypes.ts` contém somente os tipos das APIs efetivamente utilizadas e `src/types/8thwall-engine-binary.d.ts` tipa apenas `XR8Promise`.
 
@@ -116,7 +122,17 @@ O pacote npm fornece JavaScript, mas não declarações TypeScript. Por isso, `s
 ## Ordem de inicialização
 
 ```text
-usuário toca em “Iniciar AR”
+página carrega sem solicitar permissões
+    ↓
+showroom 3D interativo
+    ↓
+compatibilidade mobile confirmada via XR8Promise
+    ↓
+usuário toca em “Ver na experiência webAR”
+    ↓
+permissão de movimento no iOS, quando necessária
+    ↓
+renderer e contexto WebGL do showroom são descartados
     ↓
 pré-requisitos básicos do navegador
     ↓
@@ -232,6 +248,11 @@ Erros conhecidos são normalizados nos códigos:
 - `UNKNOWN_AR_ERROR`.
 
 ## Estrutura
+
+A orquestração de alto nível fica em `src/app/experienceController.ts`; a prévia
+vive em `src/showroom/`; o carregamento neutro do GLB fica em
+`src/three/modelAsset.ts`; e `src/ar/arExperience.ts` encapsula a sessão WebAR.
+O `main.ts` encaminha somente lifecycle de página e visibilidade.
 
 ```text
 src/

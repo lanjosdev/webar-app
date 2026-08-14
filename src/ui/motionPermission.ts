@@ -1,6 +1,7 @@
 export interface MotionPermissionUI {
   destroy(): void;
   hide(restoreFocus?: boolean): void;
+  onCancel(handler: () => void): void;
   onConfirm(handler: () => Promise<void>): void;
   show(): void;
 }
@@ -11,6 +12,7 @@ export function createMotionPermissionUI(): MotionPermissionUI {
   const cancelButton = getElement<HTMLButtonElement>('cancel-motion-permission');
   const confirmButton = getElement<HTMLButtonElement>('confirm-motion-permission');
   let confirmHandler: (() => Promise<void>) | undefined;
+  let cancelHandler: (() => void) | undefined;
   let previousFocus: HTMLElement | null = null;
   let isOpen = false;
   let isSubmitting = false;
@@ -57,6 +59,7 @@ export function createMotionPermissionUI(): MotionPermissionUI {
   const handleCancel = (): void => {
     if (!isSubmitting) {
       hide();
+      cancelHandler?.();
     }
   };
 
@@ -84,6 +87,7 @@ export function createMotionPermissionUI(): MotionPermissionUI {
     if (event.key === 'Escape') {
       event.preventDefault();
       hide();
+      cancelHandler?.();
       return;
     }
 
@@ -107,6 +111,9 @@ export function createMotionPermissionUI(): MotionPermissionUI {
   return {
     show,
     hide,
+    onCancel(handler): void {
+      cancelHandler = handler;
+    },
     onConfirm(handler): void {
       confirmHandler = handler;
     },
@@ -115,6 +122,7 @@ export function createMotionPermissionUI(): MotionPermissionUI {
       cancelButton.removeEventListener('click', handleCancel);
       confirmButton.removeEventListener('click', handleConfirm);
       document.removeEventListener('keydown', handleKeydown);
+      cancelHandler = undefined;
       confirmHandler = undefined;
     },
   };

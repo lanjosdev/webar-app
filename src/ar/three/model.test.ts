@@ -36,7 +36,7 @@ describe('preparePlacementModel', () => {
 
     const model = preparePlacementModel(source);
     const normalizedContent = model.root.getObjectByName(
-      'placement-model-normalized-content',
+      'model-normalized-content',
     );
     expect(normalizedContent).toBeDefined();
     const bounds = new Box3().setFromObject(normalizedContent!, true);
