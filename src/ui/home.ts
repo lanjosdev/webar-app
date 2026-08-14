@@ -93,7 +93,11 @@ export function createHomeUI(): HomeUI {
     canvas.hidden = phase === 'error';
     resetButton.hidden = !ready;
     hint.hidden = !ready || interactionHintDismissed;
-    canvas.setAttribute('aria-busy', String(phase === 'loading'));
+    canvas.setAttribute(
+      'aria-busy',
+      String(phase === 'loading' || phase === 'entering'),
+    );
+    canvas.setAttribute('aria-disabled', String(!ready));
 
     if (phase === 'error') {
       errorMessage.textContent =

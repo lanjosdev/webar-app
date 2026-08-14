@@ -50,6 +50,34 @@ afterEach(() => {
 });
 
 describe('ExperienceController', () => {
+  it('keeps model interaction locked until the showroom entrance completes', async () => {
+    let resolveEntrance: (() => void) | undefined;
+    const ready = new Promise<void>((resolve) => {
+      resolveEntrance = resolve;
+    });
+    const home = createHomeMock();
+    const showroom = {...createShowroomMock([]), ready};
+    const {createExperienceController} = await import('./experienceController');
+    const controller = createExperienceController({
+      checkAvailability: async () => ({status: 'available'}),
+      createHome: () => home,
+      createMotionPermission: () => createMotionMock(),
+      createShowroom: async () => showroom,
+    });
+
+    controller.start();
+    await flushPromises();
+
+    expect(home.setPhase).toHaveBeenCalledWith('entering');
+    expect(home.setPhase).not.toHaveBeenCalledWith('ready');
+
+    resolveEntrance?.();
+    await flushPromises();
+
+    expect(home.setPhase).toHaveBeenCalledWith('ready');
+    controller.destroy();
+  });
+
   it('disposes the preview before starting one AR session', async () => {
     const actions: string[] = [];
     const home = createHomeMock();
@@ -233,6 +261,7 @@ function createMotionMock(): TestMotionUI {
 
 function createShowroomMock(actions: string[]): ShowroomSession {
   return {
+    ready: Promise.resolve(),
     dispose: vi.fn(() => actions.push('showroom:dispose')),
     pause: vi.fn(() => actions.push('showroom:pause')),
     resetView: vi.fn(() => actions.push('showroom:reset')),

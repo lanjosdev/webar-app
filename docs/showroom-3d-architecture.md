@@ -38,6 +38,8 @@ geometrias e ownership. Nenhum `Object3D` atravessa a fronteira.
 - pixel ratio do showroom limitado a `1.5`;
 - PMREM criado uma vez em `128 px`;
 - sem shadow maps ou pós-processamento;
+- entrada de `2,1 s` com câmera fixa, descida e rotação suavizadas e aproximação
+  da sombra; controles e instruções são liberados somente ao final;
 - autorrotação limitada aos primeiros 12 segundos ou à primeira interação;
 - RAF encerrado quando `OrbitControls.update()` deixa de alterar a câmera;
 - `ResizeObserver` atualiza o drawing buffer somente quando necessário;

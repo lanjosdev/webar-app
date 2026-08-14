@@ -28,11 +28,15 @@ import type {ShowroomSession} from './showroomTypes';
 const ENVIRONMENT_MAP_SIZE = 128;
 const MAX_PIXEL_RATIO = 1.5;
 const AUTO_ROTATION_DURATION_MS = 12_000;
-const ENTRANCE_DURATION_MS = 900;
+const ENTRANCE_DURATION_MS = 2_100;
+const ENTRANCE_ROTATION_RADIANS = -Math.PI * 1.5;
 const MAX_DELTA_SECONDS = 0.1;
 const FLOOR_CLEARANCE = 0.004;
 const CAMERA_DISTANCE = 2.4;
 const CAMERA_HEIGHT_ABOVE_TARGET = 0.27;
+const SHADOW_FINAL_OPACITY = 0.34;
+const SHADOW_INITIAL_OPACITY = 0.08;
+const SHADOW_INITIAL_SCALE = 0.72;
 
 interface CreateShowroomOptions {
   onInteraction?: () => void;
@@ -91,7 +95,7 @@ export async function createShowroomSession(
   scene.environment = environmentTarget.texture;
   scene.environmentIntensity = 0.5;
 
-  const stage = createMinimalStage(asset.size);
+  const {root: stage, shadow} = createMinimalStage(asset.size);
   const modelPresentation = new Group();
   modelPresentation.name = 'showroom-model-presentation';
   modelPresentation.position.y = MODEL_GROUND_OFFSET;
@@ -100,24 +104,58 @@ export async function createShowroomSession(
   scene.add(stage);
 
   const controls = createShowroomControls(camera, canvas, cameraTarget);
+  const entranceModelRise = Math.max(0.9, asset.size.y * 1.1);
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
   let reducedMotion = motionPreference.matches;
-  let autoRotate = !reducedMotion;
+  let autoRotate = false;
   let autoRotateRemainingMs = AUTO_ROTATION_DURATION_MS;
-  let autoRotateDeadline = performance.now() + autoRotateRemainingMs;
-  let entranceStartedAt = performance.now();
+  let autoRotateDeadline = 0;
+  let entranceElapsedMs = reducedMotion ? ENTRANCE_DURATION_MS : 0;
   let entranceActive = !reducedMotion;
+  let interactionReady = reducedMotion;
   let interacted = false;
   let paused = false;
   let disposed = false;
   let frameId: number | undefined;
   let previousFrameAt = performance.now();
+  let resolveReady: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => {
+    resolveReady = resolve;
+  });
 
-  controls.autoRotate = autoRotate;
+  controls.autoRotate = false;
+  controls.enabled = interactionReady;
   if (entranceActive) {
-    modelPresentation.rotation.y = -0.28;
-    modelPresentation.scale.setScalar(0.96);
+    modelPresentation.position.y = MODEL_GROUND_OFFSET + entranceModelRise;
+    modelPresentation.rotation.y = ENTRANCE_ROTATION_RADIANS;
+    shadow.material.opacity = SHADOW_INITIAL_OPACITY;
+    shadow.scale.setScalar(SHADOW_INITIAL_SCALE);
+  } else {
+    resolveReady?.();
+    resolveReady = undefined;
   }
+
+  const completeEntrance = (now: number): void => {
+    entranceActive = false;
+    entranceElapsedMs = ENTRANCE_DURATION_MS;
+    interactionReady = true;
+    modelPresentation.position.y = MODEL_GROUND_OFFSET;
+    modelPresentation.rotation.y = 0;
+    shadow.material.opacity = SHADOW_FINAL_OPACITY;
+    shadow.scale.setScalar(1);
+    controls.enabled = !paused;
+    controls.update(0);
+
+    if (!reducedMotion && !interacted) {
+      autoRotate = true;
+      autoRotateRemainingMs = AUTO_ROTATION_DURATION_MS;
+      autoRotateDeadline = now + autoRotateRemainingMs;
+      controls.autoRotate = true;
+    }
+
+    resolveReady?.();
+    resolveReady = undefined;
+  };
 
   const renderFrame = (now: number): void => {
     frameId = undefined;
@@ -138,14 +176,32 @@ export async function createShowroomSession(
     }
 
     if (entranceActive) {
-      const progress = Math.min(1, (now - entranceStartedAt) / ENTRANCE_DURATION_MS);
-      const eased = 1 - (1 - progress) ** 3;
-      modelPresentation.rotation.y = -0.28 * (1 - eased);
-      modelPresentation.scale.setScalar(0.96 + eased * 0.04);
-      entranceActive = progress < 1;
+      entranceElapsedMs = Math.min(
+        ENTRANCE_DURATION_MS,
+        entranceElapsedMs + deltaSeconds * 1_000,
+      );
+      const progress = entranceElapsedMs / ENTRANCE_DURATION_MS;
+      const entranceProgress = smootherStep(progress);
+
+      modelPresentation.position.y =
+        MODEL_GROUND_OFFSET + entranceModelRise * (1 - entranceProgress);
+      modelPresentation.rotation.y =
+        ENTRANCE_ROTATION_RADIANS * (1 - entranceProgress);
+      shadow.material.opacity =
+        SHADOW_INITIAL_OPACITY +
+        (SHADOW_FINAL_OPACITY - SHADOW_INITIAL_OPACITY) * entranceProgress;
+      shadow.scale.setScalar(
+        SHADOW_INITIAL_SCALE + (1 - SHADOW_INITIAL_SCALE) * entranceProgress,
+      );
+
+      if (progress >= 1) {
+        completeEntrance(now);
+      }
     }
 
-    const controlsChanged = controls.update(deltaSeconds);
+    const controlsChanged = interactionReady
+      ? controls.update(deltaSeconds)
+      : false;
     renderer.render(scene, camera);
 
     if (autoRotate || entranceActive || controlsChanged) {
@@ -176,6 +232,10 @@ export async function createShowroomSession(
   };
 
   const stopAutoRotation = (): void => {
+    if (!interactionReady) {
+      return;
+    }
+
     if (!autoRotate && interacted) {
       return;
     }
@@ -191,12 +251,12 @@ export async function createShowroomSession(
   const handleMotionPreferenceChange = (event: MediaQueryListEvent): void => {
     reducedMotion = event.matches;
     if (reducedMotion) {
-      entranceActive = false;
-      modelPresentation.rotation.y = 0;
-      modelPresentation.scale.setScalar(1);
       autoRotate = false;
       autoRotateRemainingMs = 0;
       controls.autoRotate = false;
+      if (entranceActive) {
+        completeEntrance(performance.now());
+      }
     }
     requestFrame();
   };
@@ -217,6 +277,7 @@ export async function createShowroomSession(
   requestFrame();
 
   return {
+    ready,
     pause(): void {
       if (disposed || paused) {
         return;
@@ -234,7 +295,7 @@ export async function createShowroomSession(
     },
 
     resetView(): void {
-      if (disposed) {
+      if (disposed || !interactionReady) {
         return;
       }
 
@@ -249,7 +310,7 @@ export async function createShowroomSession(
       }
 
       paused = false;
-      controls.enabled = true;
+      controls.enabled = interactionReady;
       previousFrameAt = performance.now();
       if (autoRotate && autoRotateRemainingMs > 0) {
         autoRotateDeadline = performance.now() + autoRotateRemainingMs;
@@ -264,6 +325,8 @@ export async function createShowroomSession(
       }
 
       disposed = true;
+      resolveReady?.();
+      resolveReady = undefined;
       controls.removeEventListener('change', handleControlsChange);
       controls.removeEventListener('start', handleControlsStart);
       controls.dispose();
@@ -286,7 +349,7 @@ export async function createShowroomSession(
   };
 }
 
-function createMinimalStage(modelSize: Vector3): Group {
+function createMinimalStage(modelSize: Vector3) {
   const stage = new Group();
   stage.name = 'showroom-minimal-stage';
 
@@ -304,7 +367,7 @@ function createMinimalStage(modelSize: Vector3): Group {
   const normalizedMaxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z);
   const shadow = createProceduralGroundShadow(modelSize, normalizedMaxDimension, {
     name: 'showroom-model-ground-shadow',
-    opacity: 0.34,
+    opacity: SHADOW_FINAL_OPACITY,
     positionY: FLOOR_CLEARANCE,
   });
 
@@ -325,5 +388,9 @@ function createMinimalStage(modelSize: Vector3): Group {
 
   stage.add(floor, shadow, hemisphereLight, keyLight, keyLight.target, rimLight);
 
-  return stage;
+  return {root: stage, shadow};
+}
+
+function smootherStep(progress: number): number {
+  return progress ** 3 * (progress * (progress * 6 - 15) + 10);
 }

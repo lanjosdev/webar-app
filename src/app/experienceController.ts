@@ -98,6 +98,18 @@ export function createExperienceController(
       }
 
       showroomSession = session;
+      homeUI.setPhase('entering');
+      await session.ready;
+
+      if (
+        destroyed ||
+        currentMode !== 'showroom' ||
+        token !== showroomLoadToken ||
+        showroomSession !== session
+      ) {
+        return;
+      }
+
       homeUI.setPhase('ready');
     } catch (error: unknown) {
       if (destroyed || currentMode !== 'showroom' || token !== showroomLoadToken) {
