@@ -307,9 +307,6 @@ body {
   height: 6rem;
   margin: -3rem 0 0 -3rem;
   transform-origin: center;
-  filter:
-    drop-shadow(0 1px 1px oklch(0 0 0 / 42%))
-    drop-shadow(0 0 0.5px oklch(0 0 0 / 28%));
   pointer-events: none;
 }
 
@@ -327,8 +324,7 @@ body {
 .placement-reticle::before {
   width: 100%;
   height: 100%;
-  opacity: 0.62;
-  animation: reticle-pulse 2s ease-out infinite;
+  opacity: 0.48;
 }
 
 .placement-reticle::after {
@@ -363,18 +359,6 @@ body {
 .reticle-crosshair::after {
   width: 2px;
   height: 1.5rem;
-}
-
-@keyframes reticle-pulse {
-  from {
-    opacity: 0.58;
-    transform: translate(-50%, -50%) scale(0.9);
-  }
-
-  to {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.28);
-  }
 }
 
 #app[data-recenter-confirming='true'] .placement-reticle,
