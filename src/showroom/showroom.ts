@@ -1,28 +1,27 @@
 import {
   ACESFilmicToneMapping,
-  CylinderGeometry,
-  DataTexture,
+  Color,
   DirectionalLight,
-  GridHelper,
   Group,
   HemisphereLight,
-  LinearFilter,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
   PerspectiveCamera,
   PlaneGeometry,
   PMREMGenerator,
-  RGBAFormat,
   Scene,
+  SpotLight,
   SRGBColorSpace,
-  UnsignedByteType,
   Vector3,
   WebGLRenderer,
 } from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 
 import {disposeObject3D, loadModelAsset} from '../three/modelAsset';
+import {
+  createProceduralGroundShadow,
+  MODEL_GROUND_OFFSET,
+} from '../three/groundShadow';
 import {createShowroomControls} from './controls';
 import type {ShowroomSession} from './showroomTypes';
 
@@ -31,9 +30,9 @@ const MAX_PIXEL_RATIO = 1.5;
 const AUTO_ROTATION_DURATION_MS = 12_000;
 const ENTRANCE_DURATION_MS = 900;
 const MAX_DELTA_SECONDS = 0.1;
-const SHADOW_TEXTURE_SIZE = 64;
-const CAMERA_POSITION = new Vector3(0, 0.72, 2.4);
-const CAMERA_TARGET = new Vector3(0, 0.45, 0);
+const FLOOR_CLEARANCE = 0.004;
+const CAMERA_DISTANCE = 2.4;
+const CAMERA_HEIGHT_ABOVE_TARGET = 0.27;
 
 interface CreateShowroomOptions {
   onInteraction?: () => void;
@@ -65,10 +64,18 @@ export async function createShowroomSession(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
 
   const scene = new Scene();
-  const backgroundTexture = createBackgroundTexture();
-  scene.background = backgroundTexture;
+  scene.background = new Color(0x000000);
+  const cameraTarget = new Vector3(
+    0,
+    MODEL_GROUND_OFFSET + asset.size.y * 0.5,
+    0,
+  );
   const camera = new PerspectiveCamera(32, 1, 0.1, 20);
-  camera.position.copy(CAMERA_POSITION);
+  camera.position.set(
+    0,
+    cameraTarget.y + CAMERA_HEIGHT_ABOVE_TARGET,
+    CAMERA_DISTANCE,
+  );
 
   const roomEnvironment = new RoomEnvironment();
   const pmremGenerator = new PMREMGenerator(renderer);
@@ -84,15 +91,15 @@ export async function createShowroomSession(
   scene.environment = environmentTarget.texture;
   scene.environmentIntensity = 0.5;
 
-  const stage = createGalleryStage();
+  const stage = createMinimalStage(asset.size);
   const modelPresentation = new Group();
   modelPresentation.name = 'showroom-model-presentation';
-  modelPresentation.position.y = 0.085;
+  modelPresentation.position.y = MODEL_GROUND_OFFSET;
   modelPresentation.add(asset.root);
   stage.add(modelPresentation);
   scene.add(stage);
 
-  const controls = createShowroomControls(camera, canvas, CAMERA_TARGET);
+  const controls = createShowroomControls(camera, canvas, cameraTarget);
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
   let reducedMotion = motionPreference.matches;
   let autoRotate = !reducedMotion;
@@ -270,7 +277,6 @@ export async function createShowroomSession(
       asset.dispose();
       scene.environment = null;
       environmentTarget.dispose();
-      backgroundTexture.dispose();
       disposeObject3D(stage);
       stage.removeFromParent();
       scene.clear();
@@ -280,148 +286,44 @@ export async function createShowroomSession(
   };
 }
 
-function createGalleryStage(): Group {
+function createMinimalStage(modelSize: Vector3): Group {
   const stage = new Group();
-  stage.name = 'showroom-gallery-stage';
+  stage.name = 'showroom-minimal-stage';
 
-  const floorMaterial = new MeshStandardMaterial({
-    color: 0x1b1b1b,
-    metalness: 0.2,
-    roughness: 0.84,
-  });
-  const floor = new Mesh(new PlaneGeometry(8, 8), floorMaterial);
-  floor.name = 'showroom-floor';
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -0.005;
-
-  const platformMaterial = new MeshStandardMaterial({
-    color: 0x252525,
-    metalness: 0.58,
-    roughness: 0.32,
-  });
-  const platform = new Mesh(
-    new CylinderGeometry(1.08, 1.16, 0.08, 48),
-    platformMaterial,
-  );
-  platform.name = 'showroom-platform';
-  platform.position.y = 0.035;
-
-  const shadowTexture = createRadialShadowTexture();
-  const shadow = new Mesh(
-    new PlaneGeometry(0.92, 0.42),
-    new MeshBasicMaterial({
-      color: 0x000000,
-      depthWrite: false,
-      map: shadowTexture,
-      opacity: 0.45,
-      toneMapped: false,
-      transparent: true,
+  const floor = new Mesh(
+    new PlaneGeometry(10, 10),
+    new MeshStandardMaterial({
+      color: 0x070707,
+      metalness: 0,
+      roughness: 0.96,
     }),
   );
-  shadow.name = 'showroom-contact-shadow';
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.078;
+  floor.name = 'showroom-spotlit-floor';
+  floor.rotation.x = -Math.PI / 2;
 
-  const grid = new GridHelper(8, 32, 0x3a3a3a, 0x242424);
-  grid.name = 'showroom-grid';
-  grid.position.y = 0.001;
-  const gridMaterials = Array.isArray(grid.material) ? grid.material : [grid.material];
-  gridMaterials.forEach((material) => {
-    material.opacity = 0.32;
-    material.transparent = true;
+  const normalizedMaxDimension = Math.max(modelSize.x, modelSize.y, modelSize.z);
+  const shadow = createProceduralGroundShadow(modelSize, normalizedMaxDimension, {
+    name: 'showroom-model-ground-shadow',
+    opacity: 0.34,
+    positionY: FLOOR_CLEARANCE,
   });
 
-  const hemisphereLight = new HemisphereLight(0xffffff, 0x111722, 0.76);
-  const keyLight = new DirectionalLight(0xffffff, 1.2);
-  keyLight.position.set(1.8, 3, 2.2);
-  const rimLight = new DirectionalLight(0xbfc6d2, 0.56);
-  rimLight.position.set(-2, 1.5, -1.2);
-
-  stage.add(
-    floor,
-    grid,
-    platform,
-    shadow,
-    hemisphereLight,
-    keyLight,
-    rimLight,
+  const hemisphereLight = new HemisphereLight(0xffffff, 0x000000, 0.16);
+  const keyLight = new SpotLight(
+    0xffffff,
+    90,
+    8,
+    Math.PI * 0.19,
+    0.82,
+    2,
   );
+  keyLight.name = 'showroom-center-spotlight';
+  keyLight.position.set(0, 3.2, 1.35);
+  keyLight.target.position.set(0, 0, 0);
+  const rimLight = new DirectionalLight(0xbfc6d2, 0.48);
+  rimLight.position.set(-2.2, 1.4, -1.6);
+
+  stage.add(floor, shadow, hemisphereLight, keyLight, keyLight.target, rimLight);
 
   return stage;
-}
-
-function createBackgroundTexture(): DataTexture {
-  const width = 128;
-  const height = 96;
-  const pixels = new Uint8Array(width * height * 4);
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const progressX = x / (width - 1);
-      const progressY = y / (height - 1);
-      const centerGlow = Math.max(0, 1 - Math.abs(progressY - 0.42) * 2.4);
-      const horizontalGlow = Math.max(0, 1 - Math.abs(progressX - 0.5) * 1.65);
-      const leftPanel = Math.exp(-(((progressX - 0.19) / 0.012) ** 2));
-      const rightPanel = Math.exp(-(((progressX - 0.81) / 0.012) ** 2));
-      const panelFade = Math.max(0, 1 - Math.abs(progressY - 0.43) * 1.55);
-      const panelGlow = (leftPanel + rightPanel) * panelFade * 54;
-      const value = Math.min(
-        104,
-        Math.round(
-          14 + centerGlow * 14 + horizontalGlow * 5 + progressY * 3 + panelGlow,
-        ),
-      );
-      const offset = (y * width + x) * 4;
-      pixels[offset] = value;
-      pixels[offset + 1] = value;
-      pixels[offset + 2] = value;
-      pixels[offset + 3] = 255;
-    }
-  }
-
-  const texture = new DataTexture(
-    pixels,
-    width,
-    height,
-    RGBAFormat,
-    UnsignedByteType,
-  );
-  texture.colorSpace = SRGBColorSpace;
-  texture.magFilter = LinearFilter;
-  texture.minFilter = LinearFilter;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-
-  return texture;
-}
-
-function createRadialShadowTexture(): DataTexture {
-  const pixels = new Uint8Array(SHADOW_TEXTURE_SIZE * SHADOW_TEXTURE_SIZE * 4);
-
-  for (let y = 0; y < SHADOW_TEXTURE_SIZE; y += 1) {
-    for (let x = 0; x < SHADOW_TEXTURE_SIZE; x += 1) {
-      const normalizedX = ((x + 0.5) / SHADOW_TEXTURE_SIZE) * 2 - 1;
-      const normalizedY = ((y + 0.5) / SHADOW_TEXTURE_SIZE) * 2 - 1;
-      const radius = Math.sqrt(normalizedX ** 2 + normalizedY ** 2);
-      const falloff = Math.max(0, 1 - radius);
-      const alpha = Math.round(falloff * falloff * 255);
-      const offset = (y * SHADOW_TEXTURE_SIZE + x) * 4;
-      pixels[offset] = 255;
-      pixels[offset + 1] = 255;
-      pixels[offset + 2] = 255;
-      pixels[offset + 3] = alpha;
-    }
-  }
-
-  const texture = new DataTexture(
-    pixels,
-    SHADOW_TEXTURE_SIZE,
-    SHADOW_TEXTURE_SIZE,
-  );
-  texture.magFilter = LinearFilter;
-  texture.minFilter = LinearFilter;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-
-  return texture;
 }

@@ -20,7 +20,7 @@ showroom
 
 - `app/experienceController.ts`: estado `showroom | handoff | ar`, permissões,
   compatibilidade, visibilidade da página e ordenação do descarte.
-- `showroom/`: renderer, cena de galeria, `OrbitControls`, resize, RAF sob
+- `showroom/`: renderer, cena escura com piso iluminado, `OrbitControls`, resize, RAF sob
   demanda e cleanup da prévia.
 - `three/modelAsset.ts`: fetch, validação GLB, parse, normais, acabamento PBR,
   normalização e descarte neutros, sem dependência de XR8 ou placement.
