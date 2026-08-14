@@ -1,6 +1,7 @@
 import {
   Box3,
   BoxGeometry,
+  CylinderGeometry,
   DataTexture,
   Group,
   Mesh,
@@ -13,6 +14,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest';
 import {
   loadPlacementModel,
   PLACEMENT_MODEL_MAX_DIMENSION,
+  PLACEMENT_MODEL_CREASE_ANGLE,
   PLACEMENT_MODEL_METALNESS,
   PLACEMENT_MODEL_ROUGHNESS,
   PLACEMENT_SHADOW_OPACITY,
@@ -67,6 +69,40 @@ describe('preparePlacementModel', () => {
     expect(material.color.getHex()).toBe(originalColor);
     expect(material.metalness).toBe(PLACEMENT_MODEL_METALNESS);
     expect(material.roughness).toBe(PLACEMENT_MODEL_ROUGHNESS);
+
+    model.dispose();
+  });
+
+  it('smooths shallow geometry facets while preserving sharp creases', () => {
+    const source = new Group();
+    const geometry = new CylinderGeometry(1, 1, 1, 8, 1, true).toNonIndexed();
+    geometry.computeVertexNormals();
+    const mesh = new Mesh(geometry, new MeshStandardMaterial());
+    source.add(mesh);
+
+    const model = preparePlacementModel(source);
+    const positions = mesh.geometry.getAttribute('position');
+    const normals = mesh.geometry.getAttribute('normal');
+    const normalsByPosition = new Map<string, Set<string>>();
+
+    for (let index = 0; index < positions.count; index += 1) {
+      const positionKey = [positions.getX(index), positions.getY(index), positions.getZ(index)]
+        .map((value) => value.toFixed(5))
+        .join(',');
+      const normalKey = [normals.getX(index), normals.getY(index), normals.getZ(index)]
+        .map((value) => value.toFixed(4))
+        .join(',');
+      const normalSet = normalsByPosition.get(positionKey) ?? new Set<string>();
+      normalSet.add(normalKey);
+      normalsByPosition.set(positionKey, normalSet);
+    }
+
+    expect(PLACEMENT_MODEL_CREASE_ANGLE).toBeGreaterThan(Math.PI / 4);
+    expect(
+      [...normalsByPosition.values()]
+        .filter((normalSet) => normalSet.size > 0)
+        .every((normalSet) => normalSet.size === 1),
+    ).toBe(true);
 
     model.dispose();
   });

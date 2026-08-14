@@ -1,5 +1,6 @@
 import {
   Box3,
+  type BufferGeometry,
   DataTexture,
   Group,
   LinearFilter,
@@ -11,24 +12,27 @@ import {
   SkinnedMesh,
   Texture,
   Vector3,
-} from 'three';
-import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+} from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { toCreasedNormals } from "three/addons/utils/BufferGeometryUtils.js";
 
-import {ARError} from '../engine/arError';
+import { ARError } from "../engine/arError";
 import {
   createAutoRotationController,
   type AutoRotationController,
-} from './autoRotation';
+} from "./autoRotation";
 
-export const PLACEMENT_MODEL_URL = '/models/Logo.glb';
+export const PLACEMENT_MODEL_URL = "/models/Logo.glb";
 export const PLACEMENT_MODEL_MAX_DIMENSION = 0.75;
 export const PLACEMENT_MODEL_GROUND_OFFSET = 0.15;
 export const PLACEMENT_MODEL_LOAD_TIMEOUT_MS = 15_000;
-export const PLACEMENT_MODEL_METALNESS = 0.82;
-export const PLACEMENT_MODEL_ROUGHNESS = 0.32;
-export const PLACEMENT_SHADOW_OPACITY = 0.24;
+export const PLACEMENT_MODEL_METALNESS = 0.88;
+export const PLACEMENT_MODEL_ROUGHNESS = 0.12;
+export const PLACEMENT_MODEL_CREASE_ANGLE = Math.PI * (70 / 180);
+export const PLACEMENT_SHADOW_OPACITY = 0.34;
 
 const SHADOW_TEXTURE_SIZE = 64;
+const SMOOTHING_REFERENCE_SIZE = 100;
 const SHADOW_GROUND_CLEARANCE = 0.004;
 const SHADOW_WIDTH_RATIO = 0.88;
 const SHADOW_DEPTH_RATIO = 0.3;
@@ -58,15 +62,15 @@ export async function loadPlacementModel(
   const timeoutMs = options.timeoutMs ?? PLACEMENT_MODEL_LOAD_TIMEOUT_MS;
   const baseUrl = options.baseUrl ?? document.baseURI;
   const absoluteUrl = new URL(url, baseUrl);
-  const resourcePath = new URL('.', absoluteUrl).href;
+  const resourcePath = new URL(".", absoluteUrl).href;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
-    controller.abort(new DOMException('Model load timed out.', 'TimeoutError'));
+    controller.abort(new DOMException("Model load timed out.", "TimeoutError"));
   }, timeoutMs);
 
   try {
     const response = await (options.fetcher ?? fetch)(absoluteUrl, {
-      cache: 'default',
+      cache: "default",
       signal: controller.signal,
     });
 
@@ -77,8 +81,10 @@ export async function loadPlacementModel(
     const data = await response.arrayBuffer();
     assertValidGLBHeader(data);
 
-    const parse = options.parse ?? ((buffer: ArrayBuffer, path: string) =>
-      new GLTFLoader().parseAsync(buffer, path));
+    const parse =
+      options.parse ??
+      ((buffer: ArrayBuffer, path: string) =>
+        new GLTFLoader().parseAsync(buffer, path));
     const gltf = await parse(data, resourcePath);
 
     return preparePlacementModel(gltf.scene);
@@ -88,9 +94,9 @@ export async function loadPlacementModel(
     }
 
     throw new ARError(
-      'MODEL_LOAD_ERROR',
-      'Não foi possível carregar o modelo 3D. Verifique sua conexão e tente novamente.',
-      {cause: error},
+      "MODEL_LOAD_ERROR",
+      "Não foi possível carregar o modelo 3D. Verifique sua conexão e tente novamente.",
+      { cause: error },
     );
   } finally {
     clearTimeout(timeoutId);
@@ -105,7 +111,7 @@ export function preparePlacementModel(
 
   try {
     if (!Number.isFinite(targetMaxDimension) || targetMaxDimension <= 0) {
-      throw new Error('Target model dimension must be positive and finite.');
+      throw new Error("Target model dimension must be positive and finite.");
     }
 
     modelScene.updateMatrixWorld(true);
@@ -118,13 +124,16 @@ export function preparePlacementModel(
       !Number.isFinite(maxDimension) ||
       maxDimension <= Number.EPSILON
     ) {
-      throw new Error('The model does not contain renderable geometry with valid bounds.');
+      throw new Error(
+        "The model does not contain renderable geometry with valid bounds.",
+      );
     }
 
+    applyCreasedSmoothNormals(modelScene);
     applyMetallicFinish(modelScene);
 
     const normalizedContent = new Group();
-    normalizedContent.name = 'placement-model-normalized-content';
+    normalizedContent.name = "placement-model-normalized-content";
     normalizedContent.add(modelScene);
     normalizedContent.scale.setScalar(targetMaxDimension / maxDimension);
     normalizedContent.updateMatrixWorld(true);
@@ -140,7 +149,7 @@ export function preparePlacementModel(
     normalizedContent.updateMatrixWorld(true);
 
     const placementRoot = new Group();
-    placementRoot.name = 'placement-logo';
+    placementRoot.name = "placement-logo";
     placementRoot.visible = false;
     placementRoot.add(
       normalizedContent,
@@ -168,9 +177,9 @@ export function preparePlacementModel(
     modelScene.removeFromParent();
 
     throw new ARError(
-      'MODEL_LOAD_ERROR',
-      'O modelo 3D não contém uma cena renderizável válida.',
-      {cause: error},
+      "MODEL_LOAD_ERROR",
+      "O modelo 3D não contém uma cena renderizável válida.",
+      { cause: error },
     );
   }
 }
@@ -197,6 +206,71 @@ export function applyMetallicFinish(root: Group): void {
   });
 }
 
+export function applyCreasedSmoothNormals(root: Group): void {
+  const meshesByGeometry = new Map<BufferGeometry, Mesh[]>();
+
+  root.traverse((object) => {
+    if (!(object instanceof Mesh)) {
+      return;
+    }
+
+    const meshes = meshesByGeometry.get(object.geometry) ?? [];
+    meshes.push(object);
+    meshesByGeometry.set(object.geometry, meshes);
+  });
+
+  meshesByGeometry.forEach((meshes, sourceGeometry) => {
+    const smoothedGeometry = createCreasedSmoothGeometry(sourceGeometry);
+    meshes.forEach((mesh) => {
+      mesh.geometry = smoothedGeometry;
+    });
+    sourceGeometry.dispose();
+  });
+}
+
+function createCreasedSmoothGeometry(sourceGeometry: BufferGeometry): BufferGeometry {
+  const workingGeometry = sourceGeometry.clone();
+  let smoothedGeometry: BufferGeometry | undefined;
+
+  try {
+    workingGeometry.computeBoundingBox();
+    const size = workingGeometry.boundingBox?.getSize(new Vector3());
+    const maxDimension = size ? Math.max(size.x, size.y, size.z) : 0;
+
+    if (!Number.isFinite(maxDimension) || maxDimension <= Number.EPSILON) {
+      workingGeometry.computeVertexNormals();
+      return workingGeometry;
+    }
+
+    // BufferGeometryUtils quantizes positions while matching adjacent faces.
+    // Normalize small imported assets temporarily so distinct nearby vertices
+    // are not treated as the same point during crease-aware smoothing.
+    const smoothingScale = SMOOTHING_REFERENCE_SIZE / maxDimension;
+    workingGeometry.scale(smoothingScale, smoothingScale, smoothingScale);
+    smoothedGeometry = toCreasedNormals(
+      workingGeometry,
+      PLACEMENT_MODEL_CREASE_ANGLE,
+    );
+
+    if (smoothedGeometry !== workingGeometry) {
+      workingGeometry.dispose();
+    }
+
+    const inverseScale = 1 / smoothingScale;
+    smoothedGeometry.scale(inverseScale, inverseScale, inverseScale);
+    smoothedGeometry.computeBoundingBox();
+    smoothedGeometry.computeBoundingSphere();
+
+    return smoothedGeometry;
+  } catch (error: unknown) {
+    if (smoothedGeometry && smoothedGeometry !== workingGeometry) {
+      smoothedGeometry.dispose();
+    }
+    workingGeometry.dispose();
+    throw error;
+  }
+}
+
 function createGroundShadow(
   modelSize: Vector3,
   targetMaxDimension: number,
@@ -219,7 +293,7 @@ function createGroundShadow(
     transparent: true,
   });
   const shadow = new Mesh(new PlaneGeometry(width, depth), material);
-  shadow.name = 'placement-logo-ground-shadow';
+  shadow.name = "placement-logo-ground-shadow";
   shadow.position.y = -PLACEMENT_MODEL_GROUND_OFFSET + SHADOW_GROUND_CLEARANCE;
   shadow.rotation.x = -Math.PI / 2;
 
@@ -245,8 +319,12 @@ function createRadialShadowTexture(): DataTexture {
     }
   }
 
-  const texture = new DataTexture(pixels, SHADOW_TEXTURE_SIZE, SHADOW_TEXTURE_SIZE);
-  texture.name = 'placement-logo-ground-shadow-texture';
+  const texture = new DataTexture(
+    pixels,
+    SHADOW_TEXTURE_SIZE,
+    SHADOW_TEXTURE_SIZE,
+  );
+  texture.name = "placement-logo-ground-shadow-texture";
   texture.generateMipmaps = false;
   texture.magFilter = LinearFilter;
   texture.minFilter = LinearFilter;
@@ -256,10 +334,10 @@ function createRadialShadowTexture(): DataTexture {
 }
 
 export function disposeObject3D(root: Group): void {
-  const geometries = new Set<Mesh['geometry']>();
+  const geometries = new Set<Mesh["geometry"]>();
   const materials = new Set<Material>();
   const textures = new Set<Texture>();
-  const skeletons = new Set<SkinnedMesh['skeleton']>();
+  const skeletons = new Set<SkinnedMesh["skeleton"]>();
 
   root.traverse((object) => {
     if (object instanceof Mesh) {
@@ -286,7 +364,7 @@ export function disposeObject3D(root: Group): void {
     texture.dispose();
 
     const image = texture.source.data;
-    if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+    if (typeof ImageBitmap !== "undefined" && image instanceof ImageBitmap) {
       image.close();
     }
   });
@@ -294,7 +372,7 @@ export function disposeObject3D(root: Group): void {
 
 function assertValidGLBHeader(data: ArrayBuffer): void {
   if (data.byteLength < 12) {
-    throw new Error('The GLB header is incomplete.');
+    throw new Error("The GLB header is incomplete.");
   }
 
   const header = new DataView(data, 0, 12);
@@ -302,8 +380,12 @@ function assertValidGLBHeader(data: ArrayBuffer): void {
   const version = header.getUint32(4, true);
   const declaredLength = header.getUint32(8, true);
 
-  if (magic !== 0x46546c67 || version !== 2 || declaredLength !== data.byteLength) {
-    throw new Error('The file is not a valid glTF 2.0 binary.');
+  if (
+    magic !== 0x46546c67 ||
+    version !== 2 ||
+    declaredLength !== data.byteLength
+  ) {
+    throw new Error("The file is not a valid glTF 2.0 binary.");
   }
 }
 
@@ -317,11 +399,12 @@ function collectMaterialTextures(
     }
   });
 
-  const uniforms = 'uniforms' in material
-    ? (material.uniforms as Record<string, {value?: unknown}> | undefined)
-    : undefined;
+  const uniforms =
+    "uniforms" in material
+      ? (material.uniforms as Record<string, { value?: unknown }> | undefined)
+      : undefined;
 
-  Object.values(uniforms ?? {}).forEach(({value}) => {
+  Object.values(uniforms ?? {}).forEach(({ value }) => {
     if (value instanceof Texture) {
       textures.add(value);
     } else if (Array.isArray(value)) {

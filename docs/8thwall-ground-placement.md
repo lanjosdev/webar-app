@@ -50,14 +50,23 @@ materiais, texturas, `ImageBitmap` e skeletons que pertençam ao asset. O cleanu
 
 O acabamento é aplicado diretamente aos `MeshStandardMaterial` produzidos pelo
 `GLTFLoader`. A combinação de metalness alta e roughness moderada cria reflexos
-largos, evitando aparência cromada ou highlights excessivamente estreitos. As
-luzes existentes da cena continuam sendo usadas; não há environment map ou
-nova fonte de luz.
+visíveis sem transformar o modelo em um espelho perfeito. Além das luzes
+hemisférica e direcional, a cena gera uma única vez um environment map PMREM a
+partir de `RoomEnvironment`, limitado a 128 px para reduzir o pico e a retenção
+de memória GPU em dispositivos móveis. Esse mapa ilumina os materiais PBR sem
+substituir o vídeo da câmera usado como fundo da experiência AR e é liberado no
+cleanup.
+
+Antes da normalização, as normais das geometrias são recalculadas com um crease
+de 70 graus. Faces vizinhas com transição suave compartilham iluminação, enquanto
+quinas mais fechadas permanecem definidas. O processamento acontece uma vez no
+carregamento e não subdivide a malha; portanto melhora as faixas de shading, mas
+não altera uma silhueta que tenha poucos segmentos no arquivo de origem.
 
 A sombra no chão é uma aproximação visual, não uma sombra física. Uma
 `DataTexture` RGBA de 64 × 64 é gerada uma vez durante a preparação do asset com
 falloff radial quadrático. Ela alimenta um `MeshBasicMaterial` preto com
-opacidade `0,24`, aplicado a um `PlaneGeometry` de dois triângulos posicionado
+opacidade `0,34`, aplicado a um `PlaneGeometry` de dois triângulos posicionado
 aproximadamente em `Y = 0,004` no mundo.
 
 O plano é filho do mesmo `Group` do logo, acompanha placement, reposicionamento
