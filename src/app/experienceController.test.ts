@@ -5,10 +5,14 @@ import type {ARExperience} from '../ar/arExperience';
 import type {ShowroomSession} from '../showroom/showroomTypes';
 import type {HomeUI} from '../ui/home';
 import type {MotionPermissionUI} from '../ui/motionPermission';
+import type {ModelAppearanceConfig} from '../three/modelAppearance';
 
 interface TestUI extends HomeUI {
+  changeAppearance(appearance: ModelAppearanceConfig): void;
+  customize(open: boolean): void;
   enter(): void;
   reset(): void;
+  restoreAppearance(): void;
   retry(): void;
 }
 
@@ -39,6 +43,7 @@ beforeEach(() => {
     XR8: {},
     addEventListener: vi.fn(),
     isSecureContext: true,
+    location: {search: ''},
     matchMedia: vi.fn(() => ({matches: false})),
   });
 });
@@ -134,9 +139,57 @@ describe('ExperienceController', () => {
 
     expect(actions).toContain('showroom:pause');
     expect(actions).toContain('showroom:resume');
+    expect(home.setBusy).toHaveBeenLastCalledWith(false);
     expect(loadARExperience).not.toHaveBeenCalled();
     expect(controller.mode).toBe('showroom');
 
+    controller.destroy();
+  });
+
+  it('parses the appearance once and hands an immutable snapshot to AR', async () => {
+    vi.stubGlobal('window', {
+      XR8: {},
+      addEventListener: vi.fn(),
+      isSecureContext: true,
+      location: {search: '?c=gold&f=matte&ignored=value'},
+      matchMedia: vi.fn(() => ({matches: false})),
+    });
+    const home = createHomeMock();
+    const showroom = createShowroomMock([]);
+    let receivedAppearance: ModelAppearanceConfig | undefined;
+    const ar = createARMock([]);
+    const {createExperienceController} = await import('./experienceController');
+    const controller = createExperienceController({
+      checkAvailability: async () => ({status: 'available'}),
+      createHome: () => home,
+      createMotionPermission: () => createMotionMock(),
+      createShowroom: async (_canvas, options) => {
+        receivedAppearance = options.appearance;
+        return showroom;
+      },
+      loadARExperience: async () => ({
+        createARExperience: async ({appearance}) => {
+          receivedAppearance = appearance;
+          expect(Object.isFrozen(appearance)).toBe(true);
+          return ar;
+        },
+      }),
+      needsMotionPermission: () => false,
+      waitForHandoff: async () => undefined,
+    });
+
+    controller.start();
+    await flushPromises();
+    expect(receivedAppearance).toEqual({color: 'gold', finish: 'matte'});
+    expect(home.setAppearance).toHaveBeenCalledWith({
+      color: 'gold',
+      finish: 'matte',
+    });
+
+    home.enter();
+    await flushPromises();
+
+    expect(receivedAppearance).toEqual({color: 'gold', finish: 'matte'});
     controller.destroy();
   });
 
@@ -164,6 +217,44 @@ describe('ExperienceController', () => {
     expect(home.setAvailability).toHaveBeenCalledWith(unavailable);
     expect(loadARExperience).not.toHaveBeenCalled();
     expect(controller.mode).toBe('showroom');
+
+    controller.destroy();
+  });
+
+  it('keeps appearance state in the controller across changes and reset', async () => {
+    const actions: string[] = [];
+    const home = createHomeMock();
+    const showroom = createShowroomMock(actions);
+    const {createExperienceController} = await import('./experienceController');
+    const controller = createExperienceController({
+      checkAvailability: async () => ({status: 'available'}),
+      createHome: () => home,
+      createMotionPermission: () => createMotionMock(),
+      createShowroom: async () => showroom,
+    });
+
+    controller.start();
+    await flushPromises();
+    home.changeAppearance({color: 'gold', finish: 'matte'});
+
+    expect(home.setAppearance).toHaveBeenLastCalledWith({
+      color: 'gold',
+      finish: 'matte',
+    });
+    expect(showroom.setAppearance).toHaveBeenLastCalledWith({
+      color: 'gold',
+      finish: 'matte',
+    });
+
+    home.restoreAppearance();
+    expect(home.setAppearance).toHaveBeenLastCalledWith({
+      color: 'silver',
+      finish: 'polished',
+    });
+    expect(showroom.setAppearance).toHaveBeenLastCalledWith({
+      color: 'silver',
+      finish: 'polished',
+    });
 
     controller.destroy();
   });
@@ -200,8 +291,13 @@ describe('ExperienceController', () => {
 });
 
 function createHomeMock(): TestUI {
+  let appearanceHandler:
+    | ((appearance: ModelAppearanceConfig) => void)
+    | undefined;
+  let customizationHandler: ((open: boolean) => void) | undefined;
   let enterHandler: (() => void) | undefined;
   let resetHandler: (() => void) | undefined;
+  let restoreHandler: (() => void) | undefined;
   let retryHandler: (() => void) | undefined;
   const canvas = {} as HTMLCanvasElement;
 
@@ -210,25 +306,44 @@ function createHomeMock(): TestUI {
     destroy: vi.fn(),
     dismissInteractionHint: vi.fn(),
     hide: vi.fn(),
+    onAppearanceChange(handler): void {
+      appearanceHandler = handler;
+    },
+    onCustomizationOpenChange(handler): void {
+      customizationHandler = handler;
+    },
     onEnterAR(handler): void {
       enterHandler = handler;
     },
     onResetView(handler): void {
       resetHandler = handler;
     },
+    onRestoreAppearance(handler): void {
+      restoreHandler = handler;
+    },
     onRetryPreview(handler): void {
       retryHandler = handler;
     },
     setAvailability: vi.fn(),
+    setAppearance: vi.fn(),
     setBusy: vi.fn(),
     setEntryError: vi.fn(),
     setPhase: vi.fn(),
     show: vi.fn(),
+    changeAppearance(nextAppearance): void {
+      appearanceHandler?.(nextAppearance);
+    },
+    customize(open): void {
+      customizationHandler?.(open);
+    },
     enter(): void {
       enterHandler?.();
     },
     reset(): void {
       resetHandler?.();
+    },
+    restoreAppearance(): void {
+      restoreHandler?.();
     },
     retry(): void {
       retryHandler?.();
@@ -266,6 +381,7 @@ function createShowroomMock(actions: string[]): ShowroomSession {
     pause: vi.fn(() => actions.push('showroom:pause')),
     resetView: vi.fn(() => actions.push('showroom:reset')),
     resume: vi.fn(() => actions.push('showroom:resume')),
+    setAppearance: vi.fn(() => actions.push('showroom:appearance')),
   };
 }
 

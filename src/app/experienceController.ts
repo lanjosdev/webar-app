@@ -7,8 +7,15 @@ import {
   requestMotionPermission,
 } from '../ar/engine/motionPermission';
 import type {ARExperience} from '../ar/arExperience';
+import type {CreateARExperienceOptions} from '../ar/arExperience';
 import {createShowroomSession} from '../showroom/showroom';
 import type {ShowroomSession} from '../showroom/showroomTypes';
+import {
+  DEFAULT_MODEL_APPEARANCE,
+  normalizeModelAppearance,
+  parseModelAppearance,
+  type ModelAppearanceConfig,
+} from '../three/modelAppearance';
 import {createHomeUI, type HomeUI} from '../ui/home';
 import {
   createMotionPermissionUI,
@@ -33,10 +40,15 @@ interface ExperienceControllerDependencies {
   createMotionPermission?: () => MotionPermissionUI;
   createShowroom?: (
     canvas: HTMLCanvasElement,
-    options: {onInteraction: () => void},
+    options: {
+      appearance: ModelAppearanceConfig;
+      onInteraction: () => void;
+    },
   ) => Promise<ShowroomSession>;
   loadARExperience?: () => Promise<{
-    createARExperience(): Promise<ARExperience>;
+    createARExperience(
+      options: CreateARExperienceOptions,
+    ): Promise<ARExperience>;
   }>;
   needsMotionPermission?: () => boolean;
   requestMotion?: () => Promise<void>;
@@ -64,6 +76,7 @@ export function createExperienceController(
     dependencies.waitForHandoff ??
     (() => new Promise<void>((resolve) => setTimeout(resolve, HANDOFF_DURATION_MS)));
   let currentMode: ExperienceMode = 'showroom';
+  let appearance = parseModelAppearance(window.location.search);
   let availability: ARAvailability = {status: 'checking'};
   let showroomSession: ShowroomSession | undefined;
   let arExperience: ARExperience | undefined;
@@ -89,6 +102,7 @@ export function createExperienceController(
 
     try {
       const session = await createShowroom(homeUI.canvas, {
+        appearance,
         onInteraction: () => homeUI.dismissInteractionHint(),
       });
 
@@ -143,11 +157,14 @@ export function createExperienceController(
     homeUI.setEntryError();
     showroomSession?.pause();
     const token = ++handoffToken;
+    const appearanceSnapshot = Object.freeze({...appearance});
     let preparedExperience: ARExperience | undefined;
 
     try {
       const arModule = await loadARExperience();
-      preparedExperience = await arModule.createARExperience();
+      preparedExperience = await arModule.createARExperience({
+        appearance: appearanceSnapshot,
+      });
 
       if (destroyed || token !== handoffToken) {
         preparedExperience.destroy();
@@ -195,6 +212,7 @@ export function createExperienceController(
 
     if (needsMotionPermission()) {
       permissionDialogOpen = true;
+      homeUI.setBusy(true);
       showroomSession?.pause();
       motionPermissionUI.show();
       return;
@@ -203,6 +221,19 @@ export function createExperienceController(
     void commitHandoff();
   };
 
+  const setAppearance = (nextAppearance: ModelAppearanceConfig): void => {
+    appearance = normalizeModelAppearance(nextAppearance);
+    homeUI.setAppearance(appearance);
+    showroomSession?.setAppearance(appearance);
+  };
+
+  homeUI.onAppearanceChange(setAppearance);
+  homeUI.onCustomizationOpenChange((open) => {
+    if (open) {
+      homeUI.dismissInteractionHint();
+      showroomSession?.setAppearance(appearance);
+    }
+  });
   homeUI.onEnterAR(handleEnterAR);
   homeUI.onRetryPreview(() => {
     if (!destroyed && currentMode === 'showroom') {
@@ -210,8 +241,12 @@ export function createExperienceController(
     }
   });
   homeUI.onResetView(() => showroomSession?.resetView());
+  homeUI.onRestoreAppearance(() =>
+    setAppearance({...DEFAULT_MODEL_APPEARANCE}),
+  );
   motionPermissionUI.onCancel(() => {
     permissionDialogOpen = false;
+    homeUI.setBusy(false);
     if (!destroyed && currentMode === 'showroom' && document.visibilityState === 'visible') {
       showroomSession?.resume();
     }
@@ -225,6 +260,7 @@ export function createExperienceController(
     } catch (error: unknown) {
       permissionDialogOpen = false;
       motionPermissionUI.hide(false);
+      homeUI.setBusy(false);
       const message =
         error instanceof Error
           ? error.message
@@ -253,6 +289,7 @@ export function createExperienceController(
       arStatusPanel.hidden = true;
       arStatusPanel.setAttribute('aria-hidden', 'true');
       homeUI.show();
+      homeUI.setAppearance(appearance);
       homeUI.setAvailability(availability);
       void loadShowroom();
       void resolveAvailability();

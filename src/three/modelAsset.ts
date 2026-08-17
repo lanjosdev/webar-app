@@ -4,7 +4,6 @@ import {
   Group,
   Material,
   Mesh,
-  MeshStandardMaterial,
   type Object3D,
   SkinnedMesh,
   Texture,
@@ -12,12 +11,21 @@ import {
 } from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {toCreasedNormals} from 'three/addons/utils/BufferGeometryUtils.js';
+import {
+  applyModelAppearance,
+  collectModelAppearanceMaterials,
+  DEFAULT_MODEL_APPEARANCE,
+  MODEL_APPEARANCE_METALNESS,
+  MODEL_FINISH_OPTIONS,
+  type ModelAppearanceConfig,
+} from './modelAppearance';
 
 export const MODEL_ASSET_URL = '/models/Logo.glb';
 export const MODEL_ASSET_MAX_DIMENSION = 0.75;
 export const MODEL_ASSET_LOAD_TIMEOUT_MS = 15_000;
-export const MODEL_ASSET_METALNESS = 0.88;
-export const MODEL_ASSET_ROUGHNESS = 0.12;
+export const MODEL_ASSET_METALNESS = MODEL_APPEARANCE_METALNESS;
+export const MODEL_ASSET_ROUGHNESS =
+  MODEL_FINISH_OPTIONS.find(({id}) => id === 'polished')?.roughness ?? 0.12;
 export const MODEL_ASSET_CREASE_ANGLE = Math.PI * (70 / 180);
 
 const SMOOTHING_REFERENCE_SIZE = 100;
@@ -29,10 +37,12 @@ interface ParsedGLTF {
 export interface ModelAsset {
   dispose(): void;
   readonly root: Group;
+  setAppearance(appearance: ModelAppearanceConfig): void;
   readonly size: Vector3;
 }
 
 export interface LoadModelAssetOptions {
+  appearance?: ModelAppearanceConfig;
   baseUrl?: string;
   fetcher?: typeof fetch;
   parse?: (data: ArrayBuffer, resourcePath: string) => Promise<ParsedGLTF>;
@@ -85,6 +95,7 @@ export async function loadModelAsset(
     return prepareModelAsset(
       gltf.scene,
       options.targetMaxDimension ?? MODEL_ASSET_MAX_DIMENSION,
+      options.appearance,
     );
   } catch (error: unknown) {
     if (error instanceof ModelAssetError) {
@@ -103,6 +114,7 @@ export async function loadModelAsset(
 export function prepareModelAsset(
   modelScene: Group,
   targetMaxDimension = MODEL_ASSET_MAX_DIMENSION,
+  appearance: ModelAppearanceConfig = {...DEFAULT_MODEL_APPEARANCE},
 ): ModelAsset {
   let disposed = false;
 
@@ -127,7 +139,8 @@ export function prepareModelAsset(
     }
 
     applyCreasedSmoothNormals(modelScene);
-    applyMetallicFinish(modelScene);
+    const appearanceMaterials = collectModelAppearanceMaterials(modelScene);
+    applyModelAppearance(appearanceMaterials, appearance);
 
     const normalizedContent = new Group();
     normalizedContent.name = 'model-normalized-content';
@@ -148,6 +161,11 @@ export function prepareModelAsset(
     return {
       root: normalizedContent,
       size: normalizedSize.clone(),
+      setAppearance(nextAppearance): void {
+        if (!disposed) {
+          applyModelAppearance(appearanceMaterials, nextAppearance);
+        }
+      },
       dispose(): void {
         if (disposed) {
           return;
@@ -175,25 +193,10 @@ export function prepareModelAsset(
 }
 
 export function applyMetallicFinish(root: Object3D): void {
-  root.traverse((object) => {
-    if (!(object instanceof Mesh)) {
-      return;
-    }
-
-    const materials = Array.isArray(object.material)
-      ? object.material
-      : [object.material];
-
-    materials.forEach((material) => {
-      if (!(material instanceof MeshStandardMaterial)) {
-        return;
-      }
-
-      material.metalness = MODEL_ASSET_METALNESS;
-      material.roughness = MODEL_ASSET_ROUGHNESS;
-      material.needsUpdate = true;
-    });
-  });
+  applyModelAppearance(
+    collectModelAppearanceMaterials(root),
+    {...DEFAULT_MODEL_APPEARANCE},
+  );
 }
 
 export function applyCreasedSmoothNormals(root: Object3D): void {

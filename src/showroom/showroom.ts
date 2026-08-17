@@ -18,6 +18,7 @@ import {
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 
 import {disposeObject3D, loadModelAsset} from '../three/modelAsset';
+import type {ModelAppearanceConfig} from '../three/modelAppearance';
 import {
   createProceduralGroundShadow,
   MODEL_GROUND_OFFSET,
@@ -39,6 +40,7 @@ const SHADOW_INITIAL_OPACITY = 0.08;
 const SHADOW_INITIAL_SCALE = 0.72;
 
 interface CreateShowroomOptions {
+  appearance?: ModelAppearanceConfig;
   onInteraction?: () => void;
 }
 
@@ -46,7 +48,7 @@ export async function createShowroomSession(
   canvas: HTMLCanvasElement,
   options: CreateShowroomOptions = {},
 ): Promise<ShowroomSession> {
-  const asset = await loadModelAsset();
+  const asset = await loadModelAsset({appearance: options.appearance});
   let renderer: WebGLRenderer | undefined;
 
   try {
@@ -316,6 +318,16 @@ export async function createShowroomSession(
         autoRotateDeadline = performance.now() + autoRotateRemainingMs;
       }
       resize();
+      requestFrame();
+    },
+
+    setAppearance(appearance): void {
+      if (disposed) {
+        return;
+      }
+
+      stopAutoRotation();
+      asset.setAppearance(appearance);
       requestFrame();
     },
 

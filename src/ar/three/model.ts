@@ -17,6 +17,7 @@ import {
   prepareModelAsset,
   type ModelAsset,
 } from '../../three/modelAsset';
+import type {ModelAppearanceConfig} from '../../three/modelAppearance';
 import {
   createProceduralGroundShadow,
   MODEL_GROUND_OFFSET,
@@ -45,6 +46,7 @@ export interface PlacementModel {
 }
 
 interface LoadPlacementModelOptions {
+  appearance?: ModelAppearanceConfig;
   baseUrl?: string;
   fetcher?: typeof fetch;
   parse?: (
@@ -69,10 +71,11 @@ export async function loadPlacementModel(
 export function preparePlacementModel(
   modelScene: Group,
   targetMaxDimension = PLACEMENT_MODEL_MAX_DIMENSION,
+  appearance?: ModelAppearanceConfig,
 ): PlacementModel {
   try {
     return createPlacementModel(
-      prepareModelAsset(modelScene, targetMaxDimension),
+      prepareModelAsset(modelScene, targetMaxDimension, appearance),
     );
   } catch (error: unknown) {
     throw toPlacementModelError(error);

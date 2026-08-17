@@ -5,6 +5,7 @@ import type {TrackingState} from '../tracking/trackingState';
 import type {EngineCaptureSession} from '../capture/engineCapture';
 import {CaptureError} from '../capture/captureTypes';
 import type {DiagnosticsSink} from '../../diagnostics/diagnosticsTypes';
+import type {ModelAppearanceConfig} from '../../three/modelAppearance';
 import {loadPlacementModel} from '../three/model';
 import {ARError, toARError} from './arError';
 import type {CameraPipelineModule, XR8} from './engineTypes';
@@ -29,8 +30,9 @@ export function startAR(
   trackingState: TrackingState,
   placementReticle: HTMLElement,
   diagnostics?: DiagnosticsSink,
+  appearance?: ModelAppearanceConfig,
 ): Promise<void> {
-  startPromise ??= bootstrapAR(canvas, trackingState, placementReticle, diagnostics).catch((error: unknown) => {
+  startPromise ??= bootstrapAR(canvas, trackingState, placementReticle, diagnostics, appearance).catch((error: unknown) => {
     stopAR();
     throw toARError(error);
   });
@@ -201,6 +203,7 @@ async function bootstrapAR(
   trackingState: TrackingState,
   placementReticle: HTMLElement,
   diagnostics?: DiagnosticsSink,
+  appearance?: ModelAppearanceConfig,
 ): Promise<void> {
   const sessionToken = Symbol('webar-session');
   activeSessionToken = sessionToken;
@@ -247,7 +250,7 @@ async function bootstrapAR(
   }
 
   trackingState.setPhase('loading-model');
-  const placementModel = await loadPlacementModel();
+  const placementModel = await loadPlacementModel({appearance});
   diagnostics?.mark('model-ready');
 
   try {

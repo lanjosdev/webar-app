@@ -8,8 +8,8 @@ describe('createMobileExperienceUrl', () => {
       createMobileExperienceUrl({
         origin: 'https://example.com',
         pathname: '/experience/',
-      }),
-    ).toBe('https://example.com/experience/');
+      }, {color: 'silver', finish: 'polished'}),
+    ).toBe('https://example.com/experience/?c=silver&f=polished');
   });
 
   it('does not include query parameters or fragments', () => {
@@ -17,7 +17,7 @@ describe('createMobileExperienceUrl', () => {
       createMobileExperienceUrl({
         origin: 'https://example.com',
         pathname: '/showroom',
-      }),
-    ).toBe('https://example.com/showroom');
+      }, {color: 'gold', finish: 'matte'}),
+    ).toBe('https://example.com/showroom?c=gold&f=matte');
   });
 });

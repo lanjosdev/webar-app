@@ -9,8 +9,11 @@ export interface DesktopHandoff {
 
 export function createMobileExperienceUrl(
   location: Pick<Location, 'origin' | 'pathname'>,
+  appearance: ModelAppearanceConfig,
 ): string {
-  return new URL(location.pathname, location.origin).href;
+  const url = new URL(location.pathname, location.origin);
+  url.search = createModelAppearanceSearchParams(appearance).toString();
+  return url.href;
 }
 
 export function createDesktopHandoff(): DesktopHandoff {
@@ -106,3 +109,7 @@ function getElement<T extends HTMLElement>(id: string): T {
   }
   return element as T;
 }
+import {
+  createModelAppearanceSearchParams,
+  type ModelAppearanceConfig,
+} from '../three/modelAppearance';

@@ -54,21 +54,37 @@ describe('preparePlacementModel', () => {
     model.dispose();
   });
 
-  it('applies a satin metallic finish to compatible GLB materials', () => {
+  it('applies the default silver polished finish to compatible GLB materials', () => {
     const source = new Group();
     const material = new MeshStandardMaterial({
       color: 0x4a90e2,
       metalness: 0,
       roughness: 1,
     });
-    const originalColor = material.color.getHex();
     source.add(new Mesh(new BoxGeometry(1, 1, 1), material));
 
     const model = preparePlacementModel(source);
 
-    expect(material.color.getHex()).toBe(originalColor);
+    expect(material.color.getHex()).toBe(0xffffff);
     expect(material.metalness).toBe(PLACEMENT_MODEL_METALNESS);
     expect(material.roughness).toBe(PLACEMENT_MODEL_ROUGHNESS);
+
+    model.dispose();
+  });
+
+  it('applies a selected appearance before the placement model is returned', () => {
+    const source = new Group();
+    const material = new MeshStandardMaterial();
+    source.add(new Mesh(new BoxGeometry(1, 1, 1), material));
+
+    const model = preparePlacementModel(source, PLACEMENT_MODEL_MAX_DIMENSION, {
+      color: 'graphite',
+      finish: 'satin',
+    });
+
+    expect(material.color.getHex()).toBe(0x2f3237);
+    expect(material.roughness).toBe(0.3);
+    expect(model.root.visible).toBe(false);
 
     model.dispose();
   });

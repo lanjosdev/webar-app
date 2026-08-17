@@ -1,3 +1,5 @@
+import type {ModelAppearanceConfig} from '../three/modelAppearance';
+
 export type ShowroomPhase = 'loading' | 'entering' | 'ready' | 'error';
 
 export interface ShowroomSession {
@@ -6,4 +8,5 @@ export interface ShowroomSession {
   pause(): void;
   resetView(): void;
   resume(): void;
+  setAppearance(config: ModelAppearanceConfig): void;
 }

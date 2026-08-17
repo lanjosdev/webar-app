@@ -58,6 +58,24 @@ describe('prepareModelAsset', () => {
     expect(asset.root.parent).toBeNull();
     expect(asset.root.children).toHaveLength(0);
   });
+
+  it('updates the owned material in place without allocating another material', () => {
+    const source = new Group();
+    const material = new MeshStandardMaterial();
+    source.add(new Mesh(new BoxGeometry(1, 1, 1), material));
+    const asset = prepareModelAsset(source);
+
+    asset.setAppearance({color: 'gold', finish: 'matte'});
+
+    expect(material.color.getHex()).toBe(0xd4af37);
+    expect(material.roughness).toBe(0.55);
+    expect((source.children[0] as Mesh).material).toBe(material);
+
+    asset.dispose();
+    expect(() =>
+      asset.setAppearance({color: 'graphite', finish: 'satin'}),
+    ).not.toThrow();
+  });
 });
 
 describe('loadModelAsset', () => {

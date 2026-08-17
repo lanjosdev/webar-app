@@ -97,6 +97,137 @@
               Arraste com o mouse para girar · Scroll para aproximar
             </span>
           </p>
+
+          <button
+            id="showroom-customize"
+            class="showroom-customize-launcher ds-button ds-button--outline ds-glass"
+            type="button"
+            aria-controls="showroom-customization"
+            aria-expanded="false"
+            hidden
+          >
+            Personalizar
+          </button>
+
+          <section
+            id="showroom-customization"
+            class="showroom-customization ds-glass"
+            aria-labelledby="showroom-customization-title"
+            hidden
+          >
+            <header class="showroom-customization__header">
+              <div>
+                <p class="showroom-customization__kicker ds-mark-label">
+                  Aparência
+                </p>
+                <h2 id="showroom-customization-title">Personalize o modelo</h2>
+              </div>
+              <button
+                id="showroom-customization-close"
+                class="showroom-customization__close ds-icon-button ds-icon-button--outline"
+                type="button"
+                aria-label="Fechar personalização"
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+
+            <div class="showroom-customization__fields">
+              <fieldset class="appearance-fieldset">
+                <legend>Cor</legend>
+                <div class="appearance-options appearance-options--colors">
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-color-silver"
+                      type="radio"
+                      name="model-color"
+                      value="silver"
+                      checked
+                    />
+                    <span class="appearance-option__content">
+                      <span
+                        class="appearance-swatch appearance-swatch--silver"
+                        aria-hidden="true"
+                      ></span>
+                      <span>Prata</span>
+                    </span>
+                  </label>
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-color-graphite"
+                      type="radio"
+                      name="model-color"
+                      value="graphite"
+                    />
+                    <span class="appearance-option__content">
+                      <span
+                        class="appearance-swatch appearance-swatch--graphite"
+                        aria-hidden="true"
+                      ></span>
+                      <span>Grafite</span>
+                    </span>
+                  </label>
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-color-gold"
+                      type="radio"
+                      name="model-color"
+                      value="gold"
+                    />
+                    <span class="appearance-option__content">
+                      <span
+                        class="appearance-swatch appearance-swatch--gold"
+                        aria-hidden="true"
+                      ></span>
+                      <span>Dourado</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="appearance-fieldset">
+                <legend>Acabamento</legend>
+                <div class="appearance-options">
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-finish-polished"
+                      type="radio"
+                      name="model-finish"
+                      value="polished"
+                      checked
+                    />
+                    <span class="appearance-option__content">Polido</span>
+                  </label>
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-finish-satin"
+                      type="radio"
+                      name="model-finish"
+                      value="satin"
+                    />
+                    <span class="appearance-option__content">Acetinado</span>
+                  </label>
+                  <label class="appearance-option">
+                    <input
+                      id="appearance-finish-matte"
+                      type="radio"
+                      name="model-finish"
+                      value="matte"
+                    />
+                    <span class="appearance-option__content">Fosco</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            <button
+              id="showroom-customization-restore"
+              class="showroom-customization__restore"
+              type="button"
+            >
+              Restaurar padrão
+            </button>
+          </section>
         </div>
 
         <div class="showroom-copy">

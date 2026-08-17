@@ -12,6 +12,10 @@ import {toARError} from './engine/arError';
 import {TrackingState} from './tracking/trackingState';
 import {createCaptureUI} from '../ui/capture';
 import {createStatusUI} from '../ui/status';
+import {
+  normalizeModelAppearance,
+  type ModelAppearanceConfig,
+} from '../three/modelAppearance';
 
 export interface ARExperience {
   destroy(): void;
@@ -20,10 +24,17 @@ export interface ARExperience {
   start(): void;
 }
 
-export async function createARExperience(): Promise<ARExperience> {
+export interface CreateARExperienceOptions {
+  appearance: ModelAppearanceConfig;
+}
+
+export async function createARExperience(
+  options: CreateARExperienceOptions,
+): Promise<ARExperience> {
   const canvas = getCanvas('camera-feed');
   const placementReticle = getElement('placement-reticle');
   const trackingState = new TrackingState();
+  const appearance = Object.freeze(normalizeModelAppearance(options.appearance));
   const diagnostics =
     new URLSearchParams(window.location.search).get('diagnostics') === '1'
       ? await import('../diagnostics/diagnostics').then(({createDiagnostics}) =>
@@ -71,7 +82,13 @@ export async function createARExperience(): Promise<ARExperience> {
 
     prepareStartAttempt();
     diagnostics?.mark('start-intent');
-    void startAR(canvas, trackingState, placementReticle, diagnostics).catch(
+    void startAR(
+      canvas,
+      trackingState,
+      placementReticle,
+      diagnostics,
+      appearance,
+    ).catch(
       handleStartError,
     );
   };
